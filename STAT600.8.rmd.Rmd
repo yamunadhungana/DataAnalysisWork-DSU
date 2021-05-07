@@ -1,0 +1,384 @@
+---
+title: "8 Processing Text Homework"
+author: 'Yamuna Dhungana'
+date: '20th July, 2020'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+There are six exercises below. You are required to provide five solutions, with the same options for choosing languages as with the last exercise. You can provide solutions in two languages for one exercise only (for example, Ex. 1,2,3,5 in R and Ex. 1 in SAS is acceptable, Ex. 1,2,3 in SAS and Ex. 1,2 in R is not).
+
+If you choose SAS for an exercise, you may use `IML`, `DATA` operations or `PROC SQL` at your discretion.
+
+*Warning* I will continue restricting the use of external libraries in R, particularly `tidyverse` libraries. You may choose to use `ggplot2`, but take care that the plots you produce are at least as readable as the equivalent plots in base R. You will be allowed to use whatever libraries tickle your fancy in the midterm and final projects.
+
+## Reuse
+
+For many of these exercises, you may be able to reuse functions written in prior homework. Define those functions here.
+
+```{r}
+```
+
+
+# Exercise 1.
+
+Write a loop or a function to convert a matrix to a `CSV` compatible string. Given a matrix of the form
+
+$$
+\left(\begin{array}{rrr}
+ 1 & 2 & 3 \\
+ 4 & 5 & 6 \\
+ 7 & 8 & 9 
+ \end{array}\right) 
+$$
+
+produce a string of the form
+
+`1,2,3\n4,5,6\n7,8,9` 
+
+where `\n` is the newline character. Use the matrix below as a test case.
+
+```{r}
+Wansink <- matrix(c(268.1, 271.1, 280.9, 294.7, 285.6, 288.6, 384.4,
+                     124.8, 124.2, 116.2, 117.7, 118.3, 122.0, 168.3,
+                     18, 18, 18, 18, 18, 18, 18),ncol=3)
+
+function_to_csv <- function(x = x){
+  paste(x[,1],x[,2],x[,3],sep=',',collapse='\n')
+  }
+y <- function_to_csv(x = Wansink)
+
+# to check whether my file has worked or not
+read.csv(text= y, header =FALSE)
+
+```
+
+If you choose SAS, I've include `Wansink` as a data table and framework code for IML in the template. I used the `CATX` function in IML. I found I could do this in one line in R, with judicious use of `apply`, but I haven't found the equivalent in IML. Instead, I used a pair of nested loops to accumulate an increasingly longer string.
+
+
+# Exercise 2.
+
+Calculate MSW, MSB, $F$ and $p$ for the data from Wansink Table 1 (Homework 4, Exercise 5) where
+
+$$
+MSB = \frac{\sum_i n_i(x_i-\bar{x})^2}{k-1}
+$$
+
+$$
+MSW =  \frac{\sum_i (n_i-1)s_i^2}{N-k}
+$$
+
+and $F=MSB/MSW$.
+
+Start with the string:
+
+```{r}
+WansinkString <-
+  "268.1,271.1,280.9,294.7,285.6,288.6,384.4\n124.8,124.2,116.2,117.7,118.3,122.0,168.3\n18,18,18,18,18,18,18"
+
+```
+
+Split this string into 3 substrings based on the newline character (`'\n'`), then tokenize the strings and convert the tokens to a create vectors of numeric values (i.e. `CaloriesPerServingMean`,  `CaloriesPerServingSD`, `n`). Note this is roughly the reverse process from Exercise 1.
+
+Use these vectors to compute and print $MSW$, $MSB$, $F$ and $p$, where
+
+
+
+```{r}
+
+# First of all converting the string into a numeric value
+WansinkString <- 
+  "268.1,271.1,280.9,294.7,285.6,288.6,384.4\n124.8,124.2,116.2,117.7,118.3,122.0,168.3\n18,18,18,18,18,18,18"
+cc <- unlist(strsplit(WansinkString,"\n"),"[,]")
+ca <- function(cc){as.numeric(unlist(strsplit(cc, "[,]")))}
+
+CaloriesPerServingMean <- ca(cc[1])
+CaloriesPerServingSD <- ca(cc[2])
+n <- ca(cc[3])
+# class(CaloriesPerServingMean)
+
+```
+
+If you use SAS, I've provided macro variables that can be tokenized in either macro language or using SAS functions. You can mix and match macro, DATA, IML or SQL processing as you wish, but you must write code to convert the text into numeric tokens before processing.
+
+Compare your results from previous homework, or to the resource given in previous homework, to confirm that the text was correctly converted to numeric values.
+```{r}
+
+k <- length(CaloriesPerServingMean)
+n_i <- n
+
+# calculating the value N
+N = sum(n_i)
+
+# calculating the mean
+x_bar = sum(CaloriesPerServingMean*n_i)/N
+
+x_i <- CaloriesPerServingMean
+s_i <- CaloriesPerServingSD
+
+# using the formula of MSB
+MSB = (sum(n_i*(x_i - x_bar)^2))/(k-1)
+MSB
+
+# using the formula of MSW
+MSW <- (sum((n_i-1)*s_i^2)/(N-k))
+MSW
+
+# Calculating F.ratio
+F.ratio <- MSB/MSW
+F.ratio
+
+# Calculating p.value
+df1 <- k-1
+df2 <- N-k
+p.value <- pf(F.ratio, df1, df2, lower.tail = FALSE)
+p.value
+```
+
+
+
+# Exercise 3.
+
+Repeat the regression analysis from Homework 4, Exercise 4, but start with the text
+
+```{r}
+CaloriesPerServingMean <- "268.1 | 271.1 | 280.9 | 294.7 | 285.6 | 288.6 | 384.4"
+Year <- "1936 | 1946 | 1951 | 1963 | 1975 | 1997 | 2006"
+```
+
+Note that by default, `strsplit` in R will read `split` as a regular expression, and `|` is a special character in regular expressions. You will need to change one of the default parameters for this exercise.
+
+Tokenize these strings and convert to numeric vectors, then use these vectors to define
+
+$$
+y =\left( \begin{array}{c}
+268.1 \\
+271.1 \\
+\vdots \\
+384.4 
+ \end{array}\right) 
+ =
+ \left(\begin{array}{rr}
+ 1 & 1936 \\
+ 1 & 1946  \\
+\vdots & \vdots \\
+ 1 & 2006
+ \end{array}\right) 
+ \left(\begin{array}{c}
+ \beta_1 \\
+ \beta_2
+ \end{array}\right)^t = \mathbf{X} \mathbf{\beta}
+$$
+
+Solve for and print $\hat{\beta}$. 
+
+If you use SAS, I've provided macro variables that can be tokenized in either macro language or using SAS functions. You can mix and match macro, DATA, IML or SQL processing as you wish, but you must write code to convert the text into numeric tokens before processing.
+
+```{r}
+# Converting the given strings into a numeric vectors
+ca <- function(cc){as.numeric(unlist(strsplit(cc, "[|]")))}
+cps <- ca(CaloriesPerServingMean)
+Yr <- ca(Year)
+# class(cps)
+
+# solving the equation
+
+#creating a matrix for bias term
+bias=rep(1:1, length.out=length(cps))
+# bias
+X=matrix(c(bias,Yr), ncol = 2)
+#X
+#multplication of transpose of x and x
+tX=t(X)
+#tX
+
+Xm=tX%*%X
+#Xm
+
+A=solve(Xm)
+hat.beta=A%*%(tX%*%cps)
+hat.beta
+
+```
+
+Compare your results from previous homework, or to the resource given in previous homework, to confirm that the text was correctly converted to numeric values.
+
+# Exercise 4
+
+Load the file `openmat2015.csv` from D2L into a data table or data frame. These data are from https://news.theopenmat.com/high-school-wrestling/high-school-wrestling-rankings/final-2015-clinch-gear-national-high-school-wrestling-individual-rankings/57136. This is a list of top-ranked high school wrestlers in 2015, their high `School`, `Weight` class and in some cases the `College` where they expected to enroll and compete after high school. 
+
+Use partial text matching to answer these questions. To show your results, print only the rows from the table that match the described text patterns, but to save space, print only `Name`, `School` and `College`. Each of these can be answered in a single step.
+
+```{r}
+mydata <-
+  read.delim("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/openmat2015.csv",
+             header = TRUE, sep = ",")
+```
+
+- Which wrestlers come from a `School` with a name starting with `St.`?
+
+```{r}
+mydata[grepl("^St.", mydata$School), c("Name","School", "College")]
+
+```
+
+- Which wrestlers were intending to attend an Iowa `College` (look for `Iowa` in the `College` column)?
+
+```{r}
+mydata[grepl("Iowa", mydata$College), c("Name","School", "College")]
+
+```
+
+- Which wrestlers were intending to start `College` in 2016 or 2017 (`College` will end with 16 or 17)?
+
+```{r}
+mydata[grep("16|17", mydata$College), c("Name","School", "College")]
+
+```
+
+- Which wrestlers are intending compete in a sport other than wrestling? (look for a sport in parenthesis in the `College` column. Note - `(` is a special character in regular expressions, so to match the exact character, it needs to be preceded by the escape character `\`. However, `\` in text strings is a special character, so itself must be preceded by the escape character. 
+
+```{r}
+mydata[grep(".)", mydata$College), c("Name","School", "College")]
+```
+
+
+# Exercise 5.
+
+Load the file `openmat2015.csv` (for SAS use `openmat2015SAS.csv`) into a data table or data frame. We wish to know how many went on to compete in the national championship in 2019, so we will merge this table with the data from Homework 7, `ncaa2019.csv`.  The `openmat2015.csv` data contains only a single column, `Name`. You will need to split the text in this column to create the columns `First` and `Last` required to merge with `ncaa2019.csv`.  **Do not print these tables in the submitted work**
+
+What is the relationship between high school (`openmat2015.csv`) and college weight classes (`ncaa2019.csv`)?
+print a contingency `table` comparing `Weight` from `openmat2015.csv` and `Weight` from `ncaa2019.csv`, or produce a scatter plot or box-whisker plot, using high school weight class as the independent variable. 
+
+```{r}
+```
+
+# Exercise 6
+
+Use the file `vehicles.csv` (or `vehiclesSAS.csv` for SAS). These data were downloaded and modified from https://www.fueleconomy.gov/feg/download.shtml. 
+
+Read the data into a data frame or data table. This file has ~35000 rows; we will reduce the size of this data by filtering for text in different columns. You should use pattern matching (i.e. regular expressions - `grep` - or wildcard operators in SQL) for the filters on string data columns. **Do not print these tables in the submitted work**
+
+It may help debugging if you print the number of rows in the table after each step. You will be required to produce plots for parts **e** and **f**, but it may also help you to produce box-whisker plots at each step, using the selection column for each plot (i.e. `plot(UHighway ~ factor(VClass), data=vehicles.dat)` after part **a**)
+
+```{r}
+vehicledata <-
+  read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/vehicles.csv",
+             header = TRUE, sep = ",")
+# head(vehicledata)
+#dim(vehicledata)
+```
+
+### Part a.
+
+Select only rows with data for cars (not vans, etc.). Match `Cars` in the `VClass` column. This should remove ~17000 rows.
+
+```{r}
+# Selecting datas for cars
+cardata <- vehicledata[grepl("Cars",vehicledata$VClass),]
+# head(cardata)
+
+# Checking the dimension 
+ dim(cardata)
+```
+
+### Part b.
+
+Select only rows with data for regular or premium gasoline. You can match `Gasoline` in the `fuelType1` column and exclude rows with `Midgrade` in that column.
+
+```{r}
+# Selecting the data for regular or premium gasoline
+rp <- cardata[grepl("Regular|Premium", cardata$fuelType1),]
+dim(rp)
+```
+
+### Part c.
+
+Select for certain classes of transmissions. Match for the pattern `*-spd` in the `trany` column and exclude rows with `Doubled` in that column. There should be ~13000 rows remaining at this step.
+
+```{r}
+# Selecting the class of transmission by excluding "Doubled"
+speeed <- rp[grepl("-spd", rp$trany),]
+dd <- speeed[!grepl("Doubled", speeed$trany),]
+
+# Varifying the no of rows
+ dim(dd)
+
+```
+
+### Part d.
+
+Select only rows with values of $4,6,8$ in the `cylinders` column.
+
+```{r}
+# Selecting the values of 4,6, 8 in cylinders column
+cyldata <- dd[dd$cylinders %in% c("4","6","8"),]
+dim(cyldata)
+```
+
+### Part e.
+
+Select only rows with `year` before 2020. Produce a box-whisker plot of fuel efficiency (`UHighway`) with `year` as the independent variable. There should be <12500 rows remaining at this step.
+
+```{r}
+# Rows before 2020
+yeardata <- cyldata[cyldata$year < 2020,]
+#yeardata <- cyldata[!grepl(c("2020|2021"), cyldata$year),]
+
+# Checking the condition that is less than 12500
+dim(yeardata)
+
+# Plotting the relationship between Year and Fuel efficiency
+x <- yeardata$year
+y <- yeardata$UHighway
+boxplot(y~x,
+        data=yeardata,
+        main="Year vs Fuel_efficiency", 
+        xlab="Year", 
+        ylab="fuel_efficiency", 
+        col="Blue", 
+        border="Red" 
+)
+```
+
+### Part f.
+
+Tokenize the strings in the `trany` column into two substrings. The first will identify the type of transmission (`Manual` or `Automatic`) and the second will identify the number of gears (`3-spd`, `4-spd`), etc. Use first substring for each row to create new string data column `Transmission`, with values `Manual` or `Automatic`. Tokenize the second substring and convert the integer characters to integer values; add this as a new numeric data column `Gears`.
+
+Produce two box-whisker plot of fuel efficiency (`UHighway`) as the dependent variable, with `Transmission` and `Gears` as the independent variables.
+
+```{r}
+# Removing "-spd" from the column 
+out <- strsplit(as.character(yeardata$trany), " ")
+outt <- do.call(rbind, out)
+output <- gsub("-spd", "", outt[,2])
+outt[,2] <- output
+
+# naming the new columns and combining it with the main data 
+final <- setNames(as.data.frame(outt), c("Transmission", "Gears"))
+final$Gears <- as.numeric(final$Gears)
+combined <- cbind(yeardata, final)
+# head(combined)
+
+
+# Now plotting the fuel efficiency Vs Transmission
+boxplot(combined$UHighway ~ combined$Transmission,
+        data=yeardata,
+        main="Transmission vs fuel_efficiency", 
+        xlab="Trasmission", 
+        ylab="fuel_efficiency", 
+        col="Blue", 
+        border="Red" 
+)
+
+## Plotting fuel efficiency Vs Gears
+boxplot(combined$UHighway ~ combined$Gears,
+        data=yeardata,
+        main="Gear vs fuel_efficiency", 
+        xlab="Gear", 
+        ylab="fuel_efficiency", 
+        col="Blue", 
+        border="Red" 
+)
+```

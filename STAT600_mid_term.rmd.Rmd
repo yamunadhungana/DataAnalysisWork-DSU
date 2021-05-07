@@ -1,0 +1,904 @@
+---
+title: "Mid term project"
+author: "Yamuna Dhungana"
+date: "7/14/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+For our project, we were given some data from previous harvest years in the form of yield monitor data. Briefly, grain (corn, soybeans, and wheat, in our data) is measured as it passes through the combine and sampled at one-second intervals. The estimated yield for each sample (in units of bushels per acre) is then tagged with a GPS coordinate identifying a position in the field.
+
+We have the three data set representing the different harvest from a single field. The data is trimmed to be the regular square of 600 by 400 meters and the original GPS coordinates have been converted to the metric units. 
+
+Our main objective is to subdivide the field into a grid so that we could plan an on-farm experiment to compare two different agronomic practices.
+
+## Algorithm:
+1. I downloaded all the required libraries that are going to be used in the project.
+2. I created codes for the subdivision of our plot or a grid into the smallest grid in such a way that the yield inside the grid is not less than 30. For this, I divided the plots into 1X4 grid cell partitions increasing it by the square multiple of 4 until it reached 256 grids (i.e., 1025 cells for 2015 and 2017 data) where I had one or many cells with less than 30 samples per cell. For 2016 yield data, minimum sample size of 30 reached at 64 grid cells.
+3. I have plotted some graphs to visualize the data in the grid cells.
+4. I also calculated Mean and the standard deviation of the yield. 
+4. Then, I recalculated the mean to obtain the grand mean, grand SD, coefficient of variation and required replicates.
+5. Then, I plotted the relationship between the required replicated v/s grid cell size, grid cell size vs required replicates at 2.5, 5 and 10 percent diff.
+6. For the other two data, from 2016 and 2017, I have repeated the whole process as  before.
+
+
+
+```{r}
+# Installing required libraries
+library(ggplot2)
+library(tidyr)
+
+############ Reading files
+df2015 <- 
+  read.table("https://raw.githubusercontent.com/yamunadhungana/data/master/home.2015.csv",
+             header = TRUE, sep = ",")
+df2016 <- 
+  read.table("https://raw.githubusercontent.com/yamunadhungana/data/master/home.2016.csv",
+             header = TRUE, sep = ",")
+df2017 <-
+  read.table("https://raw.githubusercontent.com/yamunadhungana/data/master/home.2017.csv",
+             header = TRUE, sep = ",")
+
+head(df2015)
+head(df2016)
+head(df2017)
+```
+In order to visualise the cooordinates I have an plotted all three given data.
+ 
+```{r}
+library(ggplot2)
+# First we take a look at our plots
+plot(df2015$Latitude, df2015$Longitude)
+plot(df2016$Latitude, df2016$Longitude)
+plot(df2017$Latitude, df2017$Longitude)
+```
+
+here is the Function for all the calculation that will be doing later in the project.
+
+```{r}
+rm(sd)
+Each.cell.estimates <- function(df = df, testFunc = testFunc) {
+  aggregate(df$Yield, by = list(df$group), FUN = testFunc)
+}
+
+MyMerge <- function(x, y) {
+  df <- merge(x,
+              y,
+              by = "group",
+              all.x = TRUE,
+              all.y = TRUE)
+  return(df)
+}
+
+# I have created the function to do ANOVA, but since it's not required I will
+# just keep it here and not use it.
+
+get.Anova.statistics <- function(field.count = field.count) {
+  # dim(field.count)
+  
+  
+  field.count$group <- as.factor(field.count$group)
+  res.aov <- aov(Yield ~ group, data = field.count)
+  print(summary(res.aov))
+  # tukeyValues <- TukeyHSD(res.aov)
+  # tukeyValues <- as.data.frame(tukeyValues$group)
+  # tukeyValues <- tukeyValues[!is.na(tukeyValues$`p adj`),]
+  # tukeyValues$Sig_at_0.01 <- ifelse(tukeyValues$`p adj` < 0.1, "Yes", "NO")
+  # significant.cells.at0.01 <- tukeyValues[grepl("Yes", tukeyValues$Sig_at_0.01), ]
+  
+}
+### create function to subdivide our plots or create partitions
+# Minimum partition I will perform will be 1 grid (4 grid-cells), then I will increase the number
+#of grids by square multiple of 4 (i.e. n*4 grid-cells)
+
+createPartitionsOf_4squares <-
+  function(partitionNums = partitionNums, df = df) {
+    divLati <- 400 / sqrt(partitionNums)
+    divLong <- 600 / sqrt(partitionNums)
+    
+    partitionsLat <- seq(0, 400, divLati)
+    partitionsLon <- seq(0, 600, divLong)
+    
+    pos.matrix <-
+      matrix((1:partitionNums),
+             byrow = TRUE,
+             nrow = sqrt(partitionNums))
+    # pos.matrix <- apply(pos.matrix, 1, rev)
+    pos.matrix
+    
+    partitionMatrix <-
+      cbind(findInterval(df[, "Latitude"], partitionsLat),
+            findInterval(df[, "Longitude"], partitionsLon))
+    
+    choosePosition <- function(x) {
+      pos.matrix[x[2], x[1]]
+    }
+    df$group <- apply(partitionMatrix, 1, choosePosition)
+    
+    return(df)
+    
+  }
+
+# For required replicates
+rr <- function(diff,
+               cv,
+               alpha = 0.05,
+               beta = 0.2) {
+  # diff = (2.5/100)
+  # alpha <- 0.05
+  # beta <- 0.2
+  n <- 2 * (((cv / diff) ^ 2) * (qnorm((1 - alpha / 2)) + qnorm((1 - beta))) ^
+              2)
+  return(n)
+}
+
+```
+
+I will now start the analysis for field harvest of 2015 here, then I will repeat the same process for 2016 and 2017. 
+
+```{r}
+# partitionNums <- 16
+df <- df2015
+
+# Here we will start with number of grids (ngrids) starting from 1 to 262144
+# grid in total:
+# we get 10 counts of squares values of 4
+num.grid.cells <- {
+}
+square.values.4 <- rep(4, 10)
+for (j in 1:length(square.values.4)) {
+  num.grid.cells[j] <- square.values.4[j] ^ j
+}
+ngrids = num.grid.cells ^ 1 / 4
+
+
+
+# data for Year
+#df <- df2015
+
+df.partitioned <- list()
+field.count.list <- list()
+for (i in 1:length(ngrids)) {
+  print("*********************Starting************************************")
+  print(
+    paste0(
+      "Doing NumGrid = ",
+      ngrids[i],
+      " with ",
+      num.grid.cells[i],
+      " grid-cells at iteration: ",
+      i
+    )
+  )
+  partitionNums <- num.grid.cells[i]
+  print(
+    paste(
+      "Testing for",
+      ngrids[i],
+      "grid(s) for which we get",
+      partitionNums,
+      "grid-cells or partitions!!",
+      sep = " "
+    )
+  )
+  df.partitioned[[i]] <-
+    createPartitionsOf_4squares(partitionNums = partitionNums,
+                                df = df)
+  
+  final.df.tmp <- df.partitioned[[i]]
+  colnames(final.df.tmp)[colnames(final.df.tmp) == "grid"] <- "group"
+  minYield.in.data <- min(table(final.df.tmp$group))
+  
+  put.grid.cells <- sqrt(num.grid.cells[i])
+  # set.seed(54321)
+  mysamp <- sample(seq_len(nrow(final.df.tmp)), 300)
+  plot(
+    NA,
+    xlim = c(0, 400),
+    ylim = c(0, 600),
+    xaxs="i",
+    yaxs="i",
+    xlab = "Latitude",
+    ylab = "Longitude",
+    main = paste(
+      "Plot of 300 sampled data points at NumGrid=\n",
+      as.character(ngrids[i]),
+      "and Number of individual cells",
+      as.character(num.grid.cells[i]), " for data: 2015",
+      sep = " "
+    )
+  )
+  grid(
+    nx = put.grid.cells,
+    ny = put.grid.cells,
+    col = "blue",
+    lty = "dotted",
+    lwd = par("lwd"),
+    equilogs = TRUE
+  )
+  text(final.df.tmp[mysamp, c("Latitude", "Longitude")],
+       labels = final.df.tmp[mysamp, "group"], cex = 0.8)
+  
+  
+  df1 <- final.df.tmp
+  df1$group <- as.factor(df1$group)
+  # here I tried to do the anova as well but has not used
+  # get.Anova.statistics(df1)
+  
+  
+  # Function to estimate for each cell
+  # mean
+  x <- setNames(Each.cell.estimates(df = df1, testFunc = mean),
+                c("group", "mean"))
+  # length
+  y <- setNames(Each.cell.estimates(df = df1, testFunc = length),
+                c("group", "length"))
+  #sd
+  z <- setNames(Each.cell.estimates(df = df1, testFunc = sd),
+                c("group", "sd"))
+  
+  field.count <- Reduce(MyMerge, list(x, y, z))
+  
+  
+  field.coundID <-
+    paste("grid", ngrids[i], "cell", num.grid.cells[i], sep = "_")
+  field.count.list[[i]] <- field.count
+  names(field.count.list)[i] <- field.coundID
+  if (minYield.in.data < 30) {
+    print(
+      "!!!!!!!!!!!!!!!!!Exiting because one or many grid-cells have less than 30 samples!!!!!!!!!!!!!!!!!"
+    )
+    print(
+      paste0(
+        "sample for Yield is less than 30",
+        " when the plot is partioned into ",
+        num.grid.cells[i],
+        " grid-cells at iteration: ",
+        i
+      )
+    )
+    print(
+      paste0(
+        "So breaking the loop after doing a total of ",
+        ngrids[i - 1],
+        " grid partitions or ",
+        num.grid.cells[i - 1],
+        " grid-cells at iteration ",
+        i - 1
+      )
+    )
+    
+    final.df <- df.partitioned[[i - 1]]
+    break
+    
+  }
+  
+  # To better visualize how our plots change at different number of grids, we wait
+  # at ever iteration for 2.5 seconds
+  date_time <- Sys.time()
+  while ((as.numeric(Sys.time()) - as.numeric(date_time)) < 2.5) {
+  }
+}
+
+
+
+# In any given cell for these grig partitions, we can also check which one has
+# less than 30 replicates for mean
+MinimumSamples <-
+  rbind(
+    grid_1_cell_4 = min(field.count.list$grid_1_cell_4$length),
+    grid_4_cell_16 = min(field.count.list$grid_4_cell_16$length),
+    grid_16_cell_64 = min(field.count.list$grid_16_cell_64$length),
+    grid_64_cell_256 = min(field.count.list$grid_64_cell_256$length),
+    grid_256_cell_1024 = min(field.count.list$grid_256_cell_1024$length)
+  )
+
+colnames(MinimumSamples) <- c("MinSamples")
+MinimumSamples <- as.data.frame(MinimumSamples)
+MinimumSamples$partitions <- rownames(MinimumSamples)
+MinimumSamples$partitions <-
+  factor(MinimumSamples$partitions, levels = MinimumSamples$partitions)
+MinimumSamples$colorGrp <- as.factor(ifelse(MinimumSamples$MinSamples >= 30, "blue", "red"))
+MinimumSamples$colorGrp <- factor(MinimumSamples$colorGrp, levels = c("red", "blue"))
+
+ggplot(aes(x = partitions, y = MinSamples, group =1, color = colorGrp), data = MinimumSamples) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(trans = 'log10') +
+  scale_color_hue(labels = c("<30", ">=30")) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    hjust = 1
+  )) + 
+  labs (x= "Partitions", y = "Minimum sample size (log10)",  title = "Minimum samples for Yield \nat different grid/cell partitions \ndata: 2015")
+
+# Calculating Grand mean, Sd CV and RR of the each cell
+G.Mean <- function(x) {
+  mean(x$mean)
+}
+grand.mean <- lapply(field.count.list, G.Mean)
+tt <- as.data.frame(do.call(rbind, grand.mean))
+names(tt) <- "g.mean"
+# SD
+G.SD <- function(x) {
+  sd(x$mean)
+}
+grand.SD <- lapply(field.count.list, G.SD)
+tt <- cbind(tt, as.data.frame(do.call(rbind, grand.SD)))
+colnames(tt) <- c("g.means", "g.SD")
+
+# CV
+tt$g.CV <- tt$g.means / tt$g.SD
+
+# Required replicates
+tt$rr_at_per2.5 <- rr(diff = 0.025, cv = tt$g.CV)
+tt$rr_at_per5 <- rr(diff = 0.05, cv = tt$g.CV)
+tt$rr_at_per10 <- rr(diff = 0.10, cv = tt$g.CV)
+
+# Since I have used grid and cells in the relation of no * cell(4) therefor my
+# grid and cell will be
+grid <- c(1, 4, 16, 64, 256)
+cell <- c(4, 16, 64, 256, 1024)
+tt$my.grids <- grid
+tt$my.cells <- cell
+tt
+
+
+
+
+## Plotting the relationship between grid size vs cv
+tt$Grid_pairs <- rownames(tt)
+ggplot(tt, aes(x = my.cells, y = g.CV)) +
+  ggtitle("Grid cell size vs Cv \ndata: 2015") +
+  geom_point(aes(shape = Grid_pairs))  +
+  geom_line() +
+  theme_bw()
+# For required replicates
+RRplot.data <- tt[, grepl("rr_|my.cells", colnames(tt))]
+
+
+
+library(data.table)
+longRR <-
+  melt(setDT(RRplot.data),
+       id.vars = c("my.cells"),
+       variable.name = "RR_at_Perc_Diff")
+longRR$RR_at_Perc_Diff <-
+  gsub("rr_at_per", "", longRR$RR_at_Perc_Diff)
+longRR$RR_at_Perc_Diff <-
+  factor(longRR$RR_at_Perc_Diff,  levels = c("2.5", "5", "10"))
+
+ggplot(longRR, aes(x = my.cells, y = value)) +
+  ggtitle("Required replicates at various percentage diff vs grid size \n for harvest 2015") +
+  # geom_point(aes(shape = factor(my.cells)), size = 2)+
+  geom_line(aes(y = value, color = RR_at_Perc_Diff), size = 0.6) +
+  labs(x = " Number of grid cells", y = "RequiredReplicates") +
+  theme_bw()
+
+```
+
+## Conclusion for data 2015 or corn data:  
+
+From the figure titled "Minimum sample for Yield at different grid/cell partitions data 2017", concluded that the minimum sample size for yield falls below 30 at grid 256 or cell 1024, therefore, we should carry out our experiment somewhere in between grid 64 and 256, perhaps at grid 500. 
+
+   In figure titled, "Grid cell-sized vs Cv data:2015" CV is exponentially reduced as we increase the number of cells. Therefore We see more variance in mean yield when we divide our field into fewer cells for partition.  
+   
+   Likewise, based on figure titled,"Required replicates at various percentage diff vs grid size for harvest 2015" We need fewer required replicates when our percent difference is higher, and when we have more cells partition.
+
+
+
+## 2016 field analysis
+
+Now,
+```{r}
+
+df2016 <-
+  read.table(
+    "https://raw.githubusercontent.com/yamunadhungana/data/master/home.2016.csv",
+    header = TRUE,
+    sep = ","
+  )
+df <- df2016
+
+# Here we will start with number of grids (ngrids) starting from 1 to 262144
+# grid in total:
+# we get 10 counts of squares values of 4
+num.grid.cells <- {
+}
+square.values.4 <- rep(4, 10)
+for (j in 1:length(square.values.4)) {
+  num.grid.cells[j] <- square.values.4[j] ^ j
+}
+ngrids = num.grid.cells ^ 1 / 4
+
+
+
+# data for Year
+#df <- df2015
+
+df.partitioned <- list()
+field.count.list <- list()
+for (i in 1:length(ngrids)) {
+  print("*********************Starting************************************")
+  print(
+    paste0(
+      "Doing NumGrid = ",
+      ngrids[i],
+      " with ",
+      num.grid.cells[i],
+      " grid-cells at iteration: ",
+      i
+    )
+  )
+  partitionNums <- num.grid.cells[i]
+  print(
+    paste(
+      "Testing for",
+      ngrids[i],
+      "grid(s) for which we get",
+      partitionNums,
+      "grid-cells or partitions!!",
+      sep = " "
+    )
+  )
+  df.partitioned[[i]] <-
+    createPartitionsOf_4squares(partitionNums = partitionNums,
+                                df = df)
+  
+  final.df.tmp <- df.partitioned[[i]]
+  colnames(final.df.tmp)[colnames(final.df.tmp) == "grid"] <-
+    "group"
+  minYield.in.data <- min(table(final.df.tmp$group))
+  
+  put.grid.cells <- sqrt(num.grid.cells[i])
+  # set.seed(54321)
+  mysamp <- sample(seq_len(nrow(final.df.tmp)), 300)
+  plot(
+    NA,
+    xlim = c(0, 400),
+    ylim = c(0, 600),
+    xaxs="i",
+    yaxs="i",
+    xlab = "Latitude",
+    ylab = "Longitude",
+    main = paste(
+      "Plot of 300 sampled data points at NumGrid=\n",
+      as.character(ngrids[i]),
+      "and Number of individual cells",
+      as.character(num.grid.cells[i]), " for data: 2016",
+      sep = " "
+    )
+  )
+  grid(
+    nx = put.grid.cells,
+    ny = put.grid.cells,
+    col = "blue",
+    lty = "dotted",
+    lwd = par("lwd"),
+    equilogs = TRUE
+  )
+  text(final.df.tmp[mysamp, c("Latitude", "Longitude")],
+       labels = final.df.tmp[mysamp, "group"], cex = 0.8)
+  
+  
+  df1 <- final.df.tmp
+  df1$group <- as.factor(df1$group)
+  get.Anova.statistics(df1)
+  
+  # Function to estimate for each cell
+  # mean
+  x <- setNames(Each.cell.estimates(df = df1, testFunc = mean),
+                c("group", "mean"))
+  # length
+  y <- setNames(Each.cell.estimates(df = df1, testFunc = length),
+                c("group", "length"))
+  #sd
+  z <- setNames(Each.cell.estimates(df = df1, testFunc = sd),
+                c("group", "sd"))
+  
+  field.count <- Reduce(MyMerge, list(x, y, z))
+  
+  field.coundID <-
+    paste("grid", ngrids[i], "cell", num.grid.cells[i], sep = "_")
+  field.count.list[[i]] <- field.count
+  names(field.count.list)[i] <- field.coundID
+  if (minYield.in.data < 30) {
+    print(
+      "!!!!!!!!!!!!!!!!!Exiting because one or many grid-cells have less than 30 samples!!!!!!!!!!!!!!!!!"
+    )
+    print(
+      paste0(
+        "sample for Yield is less than 30",
+        " when the plot is partioned into ",
+        num.grid.cells[i],
+        " grid-cells at iteration: ",
+        i
+      )
+    )
+    print(
+      paste0(
+        "So breaking the loop after doing a total of ",
+        ngrids[i - 1],
+        " grid partitions or ",
+        num.grid.cells[i - 1],
+        " grid-cells at iteration ",
+        i - 1
+      )
+    )
+    
+    final.df <- df.partitioned[[i - 1]]
+    break
+    
+  }
+  
+  # To better visualize how our plots change at different number of grids, we wait
+  # at ever iteration for 2.5 seconds
+  date_time <- Sys.time()
+  while ((as.numeric(Sys.time()) - as.numeric(date_time)) < 2.5) {
+  }
+}
+
+
+
+# In any given cell for these grig partitions, we can also check which one has
+# less than 30 replicates for mean
+MinimumSamples <-
+  rbind(
+    grid_1_cell_4 = min(field.count.list$grid_1_cell_4$length),
+    grid_4_cell_16 = min(field.count.list$grid_4_cell_16$length),
+    grid_16_cell_64 = min(field.count.list$grid_16_cell_64$length),
+    grid_64_cell_256 = min(field.count.list$grid_64_cell_256$length)
+  )
+
+
+colnames(MinimumSamples) <- c("MinSamples")
+MinimumSamples <- as.data.frame(MinimumSamples)
+MinimumSamples$partitions <- rownames(MinimumSamples)
+MinimumSamples$partitions <-
+  factor(MinimumSamples$partitions, levels = MinimumSamples$partitions)
+MinimumSamples$colorGrp <- as.factor(ifelse(MinimumSamples$MinSamples >= 30, "blue", "red"))
+MinimumSamples$colorGrp <- factor(MinimumSamples$colorGrp, levels = c("red", "blue"))
+
+ggplot(aes(x = partitions, y = MinSamples, group =1, color = colorGrp), data = MinimumSamples) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(trans = 'log10') +
+  scale_color_hue(labels = c("<30", ">=30")) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    hjust = 1
+  )) + 
+  labs (x= "Partitions", y = "Minimum sample size (log10)",  title = "Minimum samples for Yield \nat different grid/cell partitions \ndata: 2016")
+
+
+G.Mean <- function(x) {
+  mean(x$mean)
+}
+grand.mean <- lapply(field.count.list, G.Mean)
+tt <- as.data.frame(do.call(rbind, grand.mean))
+names(tt) <- "g.mean"
+# SD
+G.SD <- function(x) {
+  sd(x$mean)
+}
+grand.SD <- lapply(field.count.list, G.SD)
+tt <- cbind(tt, as.data.frame(do.call(rbind, grand.SD)))
+colnames(tt) <- c("g.means", "g.SD")
+
+# CV
+tt$g.CV <- tt$g.means / tt$g.SD
+
+
+tt$rr_at_per2.5 <- rr(diff = 0.025, cv = tt$g.CV)
+tt$rr_at_per5 <- rr(diff = 0.05, cv = tt$g.CV)
+tt$rr_at_per10 <- rr(diff = 0.10, cv = tt$g.CV)
+
+## Since I have used grid and cells in the relation of no * cell(4) therefor my
+## crid and cell will be
+grid <- c(1, 4, 16, 64)
+cell <- c(4, 16, 64, 256)
+tt$my.grids <- grid
+tt$my.cells <- cell
+tt
+
+## Plotting the relationship between grid size vs cv
+tt$Grid_pairs <- rownames(tt)
+
+ggplot(tt, aes(x = my.cells, y = g.CV)) +
+  ggtitle("Grid cell size vs Cv \ndata: 2016") +
+  geom_point(aes(shape = Grid_pairs))  +
+  geom_line() +
+  theme_bw()
+# For required replicates
+RRplot.data <- tt[, grepl("rr_|my.cells", colnames(tt))]
+
+library(data.table)
+longRR <-
+  melt(setDT(RRplot.data),
+       id.vars = c("my.cells"),
+       variable.name = "RR_at_Perc_Diff")
+longRR$RR_at_Perc_Diff <-
+  gsub("rr_at_per", "", longRR$RR_at_Perc_Diff)
+longRR$RR_at_Perc_Diff <-
+  factor(longRR$RR_at_Perc_Diff,  levels = c("2.5", "5", "10"))
+
+ggplot(longRR, aes(x = my.cells, y = value)) +
+  ggtitle("Required replicates at various percentage diff vs grid size \n for harvest 2016") +
+  # geom_point(aes(shape = factor(my.cells)), size = 2)+
+  geom_line(aes(y = value, color = RR_at_Perc_Diff), size = 0.6) +
+  labs(x = " Number of grid cells", y = "RequiredReplicates") +
+  theme_bw()
+
+```
+## Conclusion for data 2016:
+
+From the figure titled "Minimum sample for Yield at different grid/cell partitions data 2017", concluded that the minimum sample size for yield falls below 30 at grid 256 or cell 1024, therefore, we should carry out our experiment somewhere in between grid 16 and 64, perhaps at grid 40. 
+
+   In figure titled, "Grid cell-sized vs Cv data:2016" CV is exponentially reduced as we increase the number of cells. Therefore We see more variance in mean yield when we divide our field into fewer cells for partition.  
+   
+   Likewise, based on figure titled,"Required replicates at various percentage diff vs grid size for harvest 2016" We need fewer required replicates when our percent difference is higher, and when we have more cells partition.
+
+
+
+
+## 2017 field analysis
+
+```{r}
+
+# partitionNums <- 16
+df2017 <-
+  read.table(
+    "https://raw.githubusercontent.com/yamunadhungana/data/master/home.2017.csv",
+    header = TRUE,
+    sep = ","
+  )
+df <- df2017
+
+# Here we will start with number of grids (ngrids) starting from 1 to 262144
+# grid in total:
+# we get 10 counts of squares values of 4
+num.grid.cells <- {
+}
+square.values.4 <- rep(4, 10)
+for (j in 1:length(square.values.4)) {
+  num.grid.cells[j] <- square.values.4[j] ^ j
+}
+ngrids = num.grid.cells ^ 1 / 4
+
+
+
+# data for Year
+#df <- df2015
+
+df.partitioned <- list()
+field.count.list <- list()
+for (i in 1:length(ngrids)) {
+  print("*********************Starting************************************")
+  print(
+    paste0(
+      "Doing NumGrid = ",
+      ngrids[i],
+      " with ",
+      num.grid.cells[i],
+      " grid-cells at iteration: ",
+      i
+    )
+  )
+  partitionNums <- num.grid.cells[i]
+  print(
+    paste(
+      "Testing for",
+      ngrids[i],
+      "grid(s) for which we get",
+      partitionNums,
+      "grid-cells or partitions!!",
+      sep = " "
+    )
+  )
+  df.partitioned[[i]] <-
+    createPartitionsOf_4squares(partitionNums = partitionNums,
+                                df = df)
+  
+  final.df.tmp <- df.partitioned[[i]]
+  colnames(final.df.tmp)[colnames(final.df.tmp) == "grid"] <-
+    "group"
+  minYield.in.data <- min(table(final.df.tmp$group))
+  
+  put.grid.cells <- sqrt(num.grid.cells[i])
+  # set.seed(54321)
+  mysamp <- sample(seq_len(nrow(final.df.tmp)), 300)
+  plot(
+    NA,
+    xlim = c(0, 400),
+    ylim = c(0, 600),
+    xaxs="i",
+    yaxs="i",
+    xlab = "Latitude",
+    ylab = "Longitude",
+    main = paste(
+      "Plot of 300 sampled data points at NumGrid=\n",
+      as.character(ngrids[i]),
+      "and Number of individual cells",
+      as.character(num.grid.cells[i]), " for data: 2017",
+      sep = " "
+    )
+  )
+  grid(
+    nx = put.grid.cells,
+    ny = put.grid.cells,
+    col = "blue",
+    lty = "dotted",
+    lwd = par("lwd"),
+    equilogs = TRUE
+  )
+  text(final.df.tmp[mysamp, c("Latitude", "Longitude")],
+       labels = final.df.tmp[mysamp, "group"], cex = 0.8)
+  
+  
+  df1 <- final.df.tmp
+  df1$group <- as.factor(df1$group)
+  get.Anova.statistics(df1)
+  
+  # Function to estimate for each cell
+  # mean
+  x <- setNames(Each.cell.estimates(df = df1, testFunc = mean),
+                c("group", "mean"))
+  # length
+  y <- setNames(Each.cell.estimates(df = df1, testFunc = length),
+                c("group", "length"))
+  #sd
+  z <- setNames(Each.cell.estimates(df = df1, testFunc = sd),
+                c("group", "sd"))
+  
+  field.count <- Reduce(MyMerge, list(x, y, z))
+  
+  field.coundID <-
+    paste("grid", ngrids[i], "cell", num.grid.cells[i], sep = "_")
+  field.count.list[[i]] <- field.count
+  names(field.count.list)[i] <- field.coundID
+  if (minYield.in.data < 30) {
+    print(
+      "!!!!!!!!!!!!!!!!!Exiting because one or many grid-cells have less than 30 samples!!!!!!!!!!!!!!!!!"
+    )
+    print(
+      paste0(
+        "sample for Yield is less than 30",
+        " when the plot is partioned into ",
+        num.grid.cells[i],
+        " grid-cells at iteration: ",
+        i
+      )
+    )
+    print(
+      paste0(
+        "So breaking the loop after doing a total of ",
+        ngrids[i - 1],
+        " grid partitions or ",
+        num.grid.cells[i - 1],
+        " grid-cells at iteration ",
+        i - 1
+      )
+    )
+    
+    final.df <- df.partitioned[[i - 1]]
+    break
+    
+  }
+  
+  # To better visualize how our plots change at different number of grids, we wait
+  # at ever iteration for 2.5 seconds
+  date_time <- Sys.time()
+  while ((as.numeric(Sys.time()) - as.numeric(date_time)) < 2.5) {
+  }
+}
+
+
+
+# In any given cell for these grig partitions, we can also check which one has less than 30 replicates for mean
+MinimumSamples <-
+  rbind(
+    grid_1_cell_4 = min(field.count.list$grid_1_cell_4$length),
+    grid_4_cell_16 = min(field.count.list$grid_4_cell_16$length),
+    grid_16_cell_64 = min(field.count.list$grid_16_cell_64$length),
+    grid_64_cell_256 = min(field.count.list$grid_64_cell_256$length)
+  )
+
+
+colnames(MinimumSamples) <- c("MinSamples")
+MinimumSamples <- as.data.frame(MinimumSamples)
+MinimumSamples$partitions <- rownames(MinimumSamples)
+MinimumSamples$partitions <-
+  factor(MinimumSamples$partitions, levels = MinimumSamples$partitions)
+MinimumSamples$colorGrp <- as.factor(ifelse(MinimumSamples$MinSamples >= 30, "blue", "red"))
+MinimumSamples$colorGrp <- factor(MinimumSamples$colorGrp, levels = c("red", "blue"))
+
+ggplot(aes(x = partitions, y = MinSamples, group =1, color = colorGrp), data = MinimumSamples) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous(trans = 'log10') +
+  scale_color_hue(labels = c("<30", ">=30")) +
+  theme(axis.text.x = element_text(
+    angle = 90,
+    vjust = 0.5,
+    hjust = 1
+  )) + 
+  labs (x= "Partitions", y = "Minimum sample size (log10)",  title = "Minimum samples for Yield \nat different grid/cell partitions \ndata: 2017")
+
+G.Mean <- function(x) {
+  mean(x$mean)
+}
+grand.mean <- lapply(field.count.list, G.Mean)
+tt <- as.data.frame(do.call(rbind, grand.mean))
+names(tt) <- "g.mean"
+# SD
+G.SD <- function(x) {
+  sd(x$mean)
+}
+grand.SD <- lapply(field.count.list, G.SD)
+tt <- cbind(tt, as.data.frame(do.call(rbind, grand.SD)))
+colnames(tt) <- c("g.means", "g.SD")
+
+# CV
+tt$g.CV <- tt$g.means / tt$g.SD
+
+
+tt$rr_at_per2.5 <- rr(diff = 0.025, cv = tt$g.CV)
+tt$rr_at_per5 <- rr(diff = 0.05, cv = tt$g.CV)
+tt$rr_at_per10 <- rr(diff = 0.10, cv = tt$g.CV)
+
+## Since I have used grid and cells in the relation of no * cell(4) therefor my crid and cell will be
+grid <- c(1, 4, 16, 64)
+cell <- c(4, 16, 64, 256)
+tt$my.grids <- grid
+tt$my.cells <- cell
+tt
+
+## Plotting the relationship between grid size vs cv
+tt$Grid_pairs <- rownames(tt)
+
+ggplot(tt, aes(x = my.cells, y = g.CV)) +
+  ggtitle("Grid cell size vs Cv \ndata: 2017") +
+  geom_point(aes(shape = Grid_pairs))  +
+  geom_line() +
+  theme_bw()
+# For required replicates
+RRplot.data <- tt[, grepl("rr_|my.cells", colnames(tt))]
+
+library(data.table)
+longRR <-
+  melt(setDT(RRplot.data),
+       id.vars = c("my.cells"),
+       variable.name = "RR_at_Perc_Diff")
+longRR$RR_at_Perc_Diff <-
+  gsub("rr_at_per", "", longRR$RR_at_Perc_Diff)
+longRR$RR_at_Perc_Diff <-
+  factor(longRR$RR_at_Perc_Diff,  levels = c("2.5", "5", "10"))
+
+ggplot(longRR, aes(x = my.cells, y = value)) +
+  ggtitle("Required replicates at various percentage diff vs grid size \n for harvest 2017") +
+  # geom_point(aes(shape = factor(my.cells)), size = 2)+
+  geom_line(aes(y = value, color = RR_at_Perc_Diff), size = 0.6) +
+  labs(x = " Number of grid cells", y = "RequiredReplicates") +
+  theme_bw()
+
+
+```
+## Conclusion for data 2017:  
+
+From the figure titled "Minimum sample for Yield at different grid/cell partitions data 2017", concluded that the minimum sample size for yield falls below 30 at grid 256 or cell 1024, therefore, we should carry out our experiment somewhere in between grid 64 and 256, perhaps at grid 500. 
+
+   In figure titled, "Grid cell-sized vs Cv data:2017" CV is exponentially reduced as we increase the number of cells. Therefore We see more variance in mean yield when we divide our field into fewer cells for partition.  
+   
+   Likewise. based on figure titled,"Required replicates at various percentage diff vs grid size for harvest 2017" We need fewer required replicates when our percent difference is higher, and when we have more cells partition.
+   
+  In the worst-case scenario, When we divide the field into only 4 partitions we will expect more errors because of a high CV which means more variability in mean yield that ultimately increases the error. Likewise in the best-case scenario, when we divide the field into 256 grids or 1024 cells, we will expect fewer errors because of low CV which means less variability in mean yield that ultimately decreasing errors.
+   
+
+
+

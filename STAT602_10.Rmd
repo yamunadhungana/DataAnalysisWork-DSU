@@ -1,0 +1,413 @@
+---
+title: "Homework 10"
+author: "Yamuna Dhungana"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,warning=F,message=F)
+```
+
+## Instructions
+
+Answer all questions stated in each problem. Discuss how your results address each question.
+
+Submit your answers as a pdf, typeset (knitted) from an Rmd file. Include the Rmd file in your submission. You can typeset directly to PDF or typeset to Word then save to PDF In either case, both Rmd and PDF are required. If you are having trouble with .rmd, let us know and we will help you. If you knit to Word, check for any LaTeX commands that will not be compatible with Word.
+
+This file can be used as a template for your submission. Please follow the instructions found under "Content/Begin Here" titled **Homework Formatting**. No code should be included in your PDF submission unless explicitly requested. Use the `echo = F` flag to exclude code from the typeset document.
+
+For any question requiring a plot or graph, you may choose to use either standard R graphics or functions found in `library(ggplot2)`. 
+
+You can remove the `Instructions` section from your submission.
+
+## Exercises (ISLR)
+
+### Use set.seed(202110) in each exercise to make results reproducible.
+
+**Be explicit  in citing all of your sources.**
+
+1. In this exercise, you will further analyze the **rock** data set. *You can use Dr. Saunders' toy example from the ridge regression code to help*
+
+a) Perform polynomial regression to predict `area` using `perimeter`. Use cross-validation to select the optimal degree $d$ for the polynomial. What degree was chosen, and how does this compare to the results of hypothesis testing using ANOVA? Make a plot of the resulting polynomial fit to the data.
+
+```{r}
+data(rock)
+# head(rock)
+# plot(rock)
+
+plot(area ~ peri, data = rock, main= " Area VS peri")
+# cv
+library(boot)
+set.seed(202110)
+degree <- 10
+cv_errors <- rep(NA,degree)
+for (i in 1:degree){
+  model = glm(area ~ poly(peri, i), data=rock)
+  cv_errors[i] = cv.glm(rock, model, K=5)$delta[1]
+}
+error.tab <- na.omit(data.frame(1:degree, cv_errors))
+ 
+plot(error.tab$X1.degree, error.tab$cv_errors, type = "b",
+     main = "Degree vs error of CV", xlab = "Degree", ylab = "Error")
+
+paste0("The optimal no of degree is ",which.min(error.tab$cv_errors))
+
+# The no of degree with the less error is 3 therefore using 3rd degree in our polynomial
+
+qd.mod = glm(area ~ poly(peri, 3), data = rock)
+summary(qd.mod)
+
+peri.value <- seq(min(rock$peri), max(rock$peri), 0.1)
+peripredict <- predict(qd.mod,list(peri=peri.value, peri2 = poly(rock$peri, 3)))
+
+plot(area~ peri, data = rock,main ="Polynomial model with degree = 3",  type = "p", pch=16)+
+  lines(peri.value,peripredict, pch = 16, col = "red", cex = .7)
+
+
+# now checking with the ANova
+
+# f <- 10
+# model.fit <- rep(NA,f)
+# for (i in 1:f){
+#   fit[i] = glm(peri ~ poly(area, i), data = rock)
+#   
+#   model.fit[i] = fit[i]
+# }
+# model.fit
+
+
+fit_1 <- lm(peri ~ area, data = rock)
+fit_2 <- lm(peri ~ poly(area, 2), data = rock)
+fit_3 <- lm(peri ~ poly(area, 3), data = rock)
+fit_4 <- lm(peri ~ poly(area, 4), data = rock)
+fit_5 <- lm(peri ~ poly(area, 5), data = rock)
+fit_6 <- lm(peri ~ poly(area, 6), data = rock)
+fit_7 <- lm(peri ~ poly(area, 7), data = rock)
+fit_8 <- lm(peri ~ poly(area, 8), data = rock)
+fit_9 <- lm(peri ~ poly(area, 9), data = rock)
+fit_10 <- lm(peri ~ poly(area, 10), data = rock)
+anova(fit_1, fit_2,fit_3,fit_4,fit_5,fit_6,fit_7,fit_8,fit_9,fit_10)
+
+# some work left to be done remember!!
+# edit 1 is not polyn
+
+```
+   
+   
+   Here, I have performed a 5-fold cross-validation. To choose the optimal degree for the polynomial regression, the degree varies from 1 to 10. The cross-validation approach shows the degree-3 has the minimum error, so, polynomial regression degree = 3 was chosen.
+   Whereas, from the ANOVA analysis, it shows that none of the degrees was statistically significant, which means that none of the models were statistically different. 
+
+
+
+b) Fit a step function to predict `area` using `perimeter`, and perform cross validation to choose the optimal number of cuts. Make a plot of the fit obtained. *Do not print out every single model fit from the step function. If you are having issues, please ask!*
+
+```{r}
+
+set.seed(202110)
+data(rock)
+library(boot)
+degre <- 10
+cv.errs <- rep(NA,10)
+for (i in 2:10) {
+  rock$peri.cut <- cut(rock$peri, i)
+  rock$peri.cut=rock$peri[,drop=TRUE]
+  fit <- glm(area ~ peri.cut, data = rock)
+  cv.errs[i] <- cv.glm(rock, fit, K= 10)$delta[1]
+}
+d.min <- which.min(cv.errs)
+plot(2:10,cv.errs[-1], xlab = "Cuts", ylab = "Error from CV", type = "b", main =" Error VS cuts")+
+points(d.min, cv.errs[d.min], col = 'red', cex = 2, pch = 19)
+
+
+qd.mod.2 = glm(area ~ cut(peri, 2), data = rock)
+summary(qd.mod.2)
+peri.value.2 <- seq(min(rock$peri), max(rock$peri), 0.1)
+peripredict.2 <- predict(qd.mod.2,list(peri=peri.value.2, peri2 = cut(rock$peri, 2)))
+plot(area~ peri, data = rock,main ="Step model: cut = 2",  type = "p", pch=16)+
+  lines(peri.value.2,peripredict.2, pch = 16, col = "red", cex = .7)
+
+
+
+```
+   
+   Here, I have performed a 10-fold cross-validation. To choose the optimal amount of cuts for the step regression, the cut produces the categorical value for the perimeter of the rock. It increases from 1 to 10. The cross-validation approach shows that cut = 3 has the minimum error, so, cut = 2 was chosen for the analysis. The model was fitted with a cut of 2. 
+ 
+  
+  
+c) If all of the rocks were perfect circles, what would be the relationship between area and perimeter? If it is not linear, what does that tell you about the shape of the rocks?
+
+```{r}
+paste0("AIC of polynomial regression with degree=3: ",round(extractAIC(qd.mod)[2]))
+paste0("AIC of Step function:  ",round(extractAIC(qd.mod.2)[2]))
+
+
+```
+
+   From the above analysis, we tested two models: polynomial regression with degree = 3 and the step function with two cuts. From our analysis, it shows that the AIC value for the model with degree 3 is 830. Whereas, the AIC value for the step function is 872. As we know, the lower AIC always has the better fit in the model. Therefore, we can say that the model has a quadratic model with degree = 3.
+
+
+
+2. Exercise 7.9.9 pg 299 **Be explicit  in citing all of your sources.**
+This question uses the variables dis (the weighted mean of distances
+to five Boston employment centers) and nox (nitrogen oxides concentration
+in parts per 10 million) from the Boston data. We will treat
+dis as the predictor and nox as the response.
+
+a. Use the poly() function to fit a cubic polynomial regression to
+predict nox using dis. Report the regression output, and plot
+the resulting data and polynomial fits.
+
+```{r}
+library(MASS)
+data(Boston)
+
+lm_boston <- lm(nox~poly(dis,3),data= Boston)
+summary(lm_boston)
+
+
+dis.value <- seq(min(Boston$dis), max(Boston$dis), 0.1)
+dispredict <- predict(lm_boston,list(dis=dis.value, peri2 = poly(Boston$dis, 3)))
+plot(nox~ dis, data = Boston, main ="Polynomial model fit with degree = 3",  type = "p", pch=16,cex = 0.7, col = "skyblue")+
+  lines(dis.value, dispredict, pch = 16, col = "red", cex = .7)
+
+
+```
+
+   The polynomial regression (cubic) was performed, and the P-values for all the terms are statistically significant. The adjusted R-squared of the model is 0.713, which means the model can explain 71.3% of the total variability of 'nox'. The plot of the model with the cubic fit is shown above.Resulting data and polynomial fits are shown in Figure 5. Seems the data is well fitted for the 3rd order polynomial fit.
+   
+
+
+b. Plot the polynomial fits for a range of different polynomial
+degrees (say, from 1 to 10), and report the associated residual
+sum of squares.
+
+```{r}
+
+par(mfrow=c(2,2))
+RSS <- {}
+for (i in 1:10) {
+  lm_boston <- lm(nox~poly(dis,i),data= Boston)
+  RSS[i] <- (round(sum((lm_boston$residuals)^2),3))
+  dis.value <- seq(min(Boston$dis), max(Boston$dis), 0.1)
+  dispredict.b <- predict(lm_boston,list(dis=dis.value, peri2 = poly(Boston$dis, i)))
+  plot(nox~ dis, data = Boston, main=c(paste("polynomial model: order = ",i), paste("RSS = " , (round(sum((lm_boston$residuals)^2),3)))), type = "p", pch=16,cex = 0.7, col = "skyblue")+
+  lines(dis.value, dispredict.b, pch = 16, col = "red", cex = .7)
+  
+}
+
+```
+   
+   I have choosen the degree from 1 to 10 to fit the polynomial model. The graph is plotted at each degree. The RSS is also reported at each graphs. 
+   
+
+
+```{r}
+myrss <- data.frame(1:10, RSS)
+colnames(myrss) <- c("Order", "RSS")
+knitr::kable(myrss, digits = 3,
+             caption = "RSS of the model with order")
+
+plot(myrss$Order, myrss$RSS, type = "b", col = "blue", main = "RSS vs order plot", xlab = "order of polynomial models", ylab = "RSS")
+
+
+# bost.min.a <- which.min(RSS)
+# plot(RSS, xlab = "Degree", ylab = "error with CV", type = "b",main = "Degree vs error of CV")+
+# points(bost.min.a, RSS[bost.min.a], col = 'blue', cex = 2, pch = 19)
+```
+
+   
+   The table is shown for the RSS and the degree associated with the model. The following plot is shown with the degree and the RSS. The graph shows that as we increase the degree of the polynomial, the error decreases and does not change much after degree 8.   
+
+
+
+c. Perform cross-validation or another approach to select the optimal
+degree for the polynomial, and explain your results.
+
+```{r}
+set.seed(202110)
+d.boston <- 10
+cv_boston <- rep(NA,d.boston)
+for (i in 1:d.boston){
+  modelcheck = glm(nox~poly(dis,i), data=Boston)
+  cv_boston[i] = cv.glm(Boston, modelcheck, K=10)$delta[1]
+}
+# error.tab.b <- na.omit(data.frame(1:d.boston, cv_boston))
+# plot(error.tab.b$X1.d.boston, error.tab.b$cv_boston, type = "b",
+#      main = "Degree vs error of CV", xlab = "Degree", ylab = "Error")
+# min(error.tab.b$cv_boston)
+
+bost.min.b <- which.min(cv_boston)
+plot(cv_boston, xlab = "Degree", ylab = "error with CV", type = "b",main = "Degree vs error of CV")+
+points(bost.min.b, cv_boston[bost.min.b], col = 'blue', cex = 2, pch = 19)
+
+```
+   
+  The 10 fold cross-validation is performed with the degree of 1 to 10. I have set the seed for reproducibility as 202110. The model is fitted with degrees from 1 to 10. An error is collected and plotted. My fit shows that the best fit is at the third degree because the error is least at degree three. Error increases as we increase the degree of the polynomial.
+  
+
+
+d. Use the bs() function to fit a regression spline to predict nox
+using dis. Report the output for the fit using four degrees of
+freedom. 
+How did you choose the knots? Plot the resulting fit.
+
+```{r}
+library(splines)
+dis.value <- seq(min(Boston$dis), max(Boston$dis), 0.1)
+
+# 1st part with 4 degree of freedom
+
+model4df=lm(nox~ bs(dis,df=4), data = Boston)
+summary(model4df)
+
+dispredict.df <- predict(model4df,list(dis=dis.value, dis2 =bs(Boston$dis,df=4)))
+plot(nox~ dis, data = Boston, main ="spline regression when DF = 4",  type = "p", pch=16,cex = 0.7, col = "skyblue")+
+  lines(dis.value, dispredict.df, pch = 16, col = "red", cex = .7)
+
+# second part
+
+# n = dim(Boston)[1]
+# set.seed(202110)
+# num = sample(1:n, size= round(n/2))
+# data.1 = Boston[num,]
+# data.2 = Boston[-num,]
+# 
+# err.sp=rep(NA,10)
+# for(i in 1:10){
+#   k=quantile(Boston$dis, probs =c(1:i)/(i+1))
+#   model1=lm(nox~ bs(dis,knots=k), data = data.1)
+#   model2=lm(nox~ bs(dis,knots=k), data = data.2)
+#   
+#   pred1=predict(model1, newdata = data.2)
+#   pred2=predict(model2, newdata = data.1)
+#   
+#   err.sp[i]=(sum((pred1-data.2$nox)^2)+sum((pred2-data.1$nox)^2))/2
+#   
+# }
+
+# bost.min.sp <- which.min(err.sp)
+# plot(err.sp, xlab = "Degree", ylab = "error with CV", type = "b",main = "Degree vs error of CV")+
+# points(bost.min.sp, err.sp[bost.min.sp], col = 'blue', cex = 2, pch = 19)
+# 
+
+d.b <- 10
+set.seed(202110)
+cv_b <- rep(NA,d.b)
+for (i in 1:d.b){
+  k=quantile(Boston$dis, probs =c(1:i)/(i+1))
+  modelck = glm(nox~bs(dis,knots=k), data=Boston)
+  cv_b[i] = cv.glm(Boston, modelck, K=10)$delta[1]
+}
+
+bost.min.sp <- which.min(cv_b)
+plot(cv_b, xlab = "Knots", ylab = "error with CV", type = "b",main = "Knots vs error of CV")+
+points(bost.min.sp, cv_b[bost.min.sp], col = 'blue', cex = 2, pch = 19)
+
+
+k=quantile(Boston$dis, probs =c(1:7)/(7+1))
+model9k=lm(nox~ bs(dis,knots=k), data = Boston)
+summary(model9k)
+
+
+
+dispredict.sp <- predict(model9k,list(dis=dis.value, peri2 =bs(Boston$dis,knots=k) ))
+plot(nox~ dis, data = Boston, main ="spline regression when knot = 7",  type = "p", pch=16,cex = 0.7, col = "skyblue")+
+  lines(dis.value, dispredict.sp, pch = 16, col = "red", cex = .7)
+
+
+
+
+```
+
+   The first part of the question is pretty straightforward.  As the question mentioned, I chose a degree of freedom of 4 and fit the model. The fitted model is shown above. With all the degrees of freedom, the p-value shows they are statistically significant.
+
+   The second part of the question was about how I chose knots for my model. Below are the steps:
+Select the number of knots. Let it be k.
+
+   • Choose the location of the knots based on quantiles. For k knots, the locations are c (1: k)/(k+1) quantile points.
+
+   • Make a model with k knots at locations stated above and estimate the 10 fold CV.
+
+   • Follow steps 1-3 for different k values, using the same partitions of the data.
+
+   • Select k, where 10 fold CV is the minimum
+
+   Varying k from 1 to 10, the 10 fold CV was evaluated. The resulting plot is shown above:
+   With these different knots, I have plotted the graphs with the errors obtained with the cross-validation. The knot with the least error is 7, therefore, fitting the model with the knot 7.
+
+
+e. Now fit a regression spline for a range of degrees of freedom, and
+plot the resulting fits and report the resulting RSS. Describe the
+results obtained.
+
+```{r}
+par(mfrow=c(1,3))
+sRSS <- {}
+for (j in 1:13) {
+  spln_boston <- lm(nox~ bs(dis,df=j), data = Boston)
+  sRSS[j] <- (round(sum((spln_boston$residuals)^2),3))
+  dis.value <- seq(min(Boston$dis), max(Boston$dis), 0.1)
+  dispredict.spln <- predict(spln_boston,list(dis=dis.value, dis2 = bs(Boston$dis,df=j)))
+  plot(nox~ dis, data = Boston, main=c(paste("Spline model: DF = ",j), paste("RSS = " , (round(sum((spln_boston$residuals)^2),3)))), type = "p", pch=16,cex = 0.7, col = "skyblue")+
+  lines(dis.value, dispredict.spln, pch = 16, col = "red", cex = .7)
+}
+
+```
+  
+   Our regression spline has a degree of freedom ranging from 1 to 13.The corresponding fit is plotted above. RSS is also calculated and plotted.
+
+
+```{r}
+myrss_spline <- data.frame(1:13, sRSS)
+colnames(myrss_spline) <- c("DF", "RSS")
+knitr::kable(myrss_spline, digits = 3,
+             caption = "RSS of the model with DF")
+
+plot(myrss_spline$DF, myrss_spline$RSS, type = "b", col = "blue", main = "RSS vs df plot", xlab = "df of polynomial models", ylab = "RSS")
+
+```
+
+   
+   The degree of freedom from 1 to 13 is plotted above. For the initial 1 to 3 DF shows that there is no much change in RSS, but as we increase our DF, our RSS decreases. After DF 13, the errors remained constant. 
+   
+
+f. Perform cross-validation or another approach in order to select
+the best degrees of freedom for a regression spline on this data.
+Describe your results.
+
+```{r}
+df.b <- 10
+set.seed(202110)
+cv_df <- rep(NA,df.b)
+for (i in 1:df.b){
+  # k=quantile(Boston$dis, probs =c(1:i)/(i+1))
+  model.df = glm(nox~bs(dis,df=df.b), data=Boston)
+  cv_df[i] = cv.glm(Boston, model.df, K=10)$delta[1]
+}
+
+bost.min.sp <- which.min(cv_df)
+plot(cv_df, xlab = "Degree of freedom", ylab = "error with CV", type = "b",main = "Degree vs error of CV")+
+points(bost.min.sp, cv_df[bost.min.sp], col = 'blue', cex = 2, pch = 19)
+
+```
+   
+   Here, I have performed 10 fold cross-validation approach to select the degree of freedom. The spline regression is fitted with the degree of freedom, ranging from 1 to 10. The error of the model is reported and is plotted. According to the RSS VS degree of freedom, plots show that the error is minimum when df is 3. Beyond df= 3 error seems to increase.
+   
+
+```{r}
+# Source
+
+# http://www.science.smith.edu/~jcrouser/SDS293/labs/lab12-r.html
+# https://www.statology.org/quadratic-regression-r/
+# http://www.science.smith.edu/~jcrouser/SDS293/labs/lab7-r.html
+# https://www.datamentor.io/r-programming/plot-function/
+# https://www.theanalysisfactor.com/r-tutorial-4/
+# https://www.youtube.com/watch?v=EWs1Ordh8nI
+# https://www.nceas.ucsb.edu/sites/default/files/2020-04/colorPaletteCheatsheet.pdf
+# https://github.com/darraghdog/STATS216-2015-Homework/blob/master/HW3/STATS216%20Homework%203%20Version%203.Rmd
+# https://medium.com/analytics-vidhya/spline-regression-in-r-960ca82aa62c
+# https://stat.ethz.ch/R-manual/R-devel/library/stats/html/extractAIC.html
+
+
+```
+

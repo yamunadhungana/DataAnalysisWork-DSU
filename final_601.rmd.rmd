@@ -1,0 +1,617 @@
+---
+title: "Final Assignment"
+author: "Yamuna Dhungana"
+output: pdf_document
+---
+
+
+
+
+
+# 1
+
+
+                             ` Analysis of Microtus data`
+               
+The data was taken from “Discrimination between two species of Microtus using both classified 
+and unclassified observations journal of Theoretical Biology” by Airoldi, J.-P., B. Flury, M. 
+Salvioni (1996). Our dataset, Microtus used from the library “Flury”. The data consist of 288 no
+of samples of a vole, collected mostly in Europe (the Alps and Jura mountains) and in Toscana. The
+dataset was initiated by a data collection consisting of eight morphometric variables measured by 
+one of the authors (Salvioni) using a Nikon measure-score(accuracy1/1000mm). 89 of the total data 
+set is classified by its species with a detailed explanation of the chromosome data. Whereas the remaining 199 sets of data are yet to identify its species. Hence, the main objective of our final
+project is to predict the species of the unknown group. The data set consist of 288 observations 
+with a factor indicating the species and observations on a further eight variables:
+Group: Species of the data with multiple, subterraneous, and unknown.
+M1Left: Width of the upper left molar 1 (0.001mm)
+M2Left: Width of the upper left molar 2 (0.001mm)
+M3Left: Width of the upper left molar 3 (0.001mm)
+Foramen: Length of incisive foramen (0.001mm)
+Pbone: Length of palatal bone (0.001mm)
+Length: Condylo incisive length or skull length (0.01mm)
+Height: Skull height above bullae (0.01mm)
+Rostrum: Skull width across rostrum (0.01mm)
+
+
+Firstly, the libraries used in the project were loaded. The dataset Microtus was also loaded. To
+begin with, I plotted a pairwise plot for the relation between the variables of the dataset.  
+
+
+```{r,echo=FALSE,warning=FALSE}
+# library(tidyverse)
+
+library(ggplot2)
+require(GGally)
+
+# loading the data
+data("microtus", package = "Flury")
+# dim(microtus) # Viewing the dimension of data
+# class(microtus) # viewing the type of data
+
+# plot(microtus)
+# microtus %>% ggpairs(., 
+#                mapping = ggplot2::aes(colour=Group), 
+#                lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1)))
+#  
+ggpairs(microtus, columns = 1:9, ggplot2::aes(colour=Group))
+
+```
+
+The pairwise plot shows the relationship between the variables. The upper right of the graph shows
+the correlation values between the variables. The lower left of the pairwise plot shows the scatter
+plot of the data. Likewise, the bar and the boxplot also can be seen in the plot. The graph at the diagonal is the density plot of the data. Color red representing the multiple, green as subterraneous,
+and blue as the unknown species. The coefficient for the variables in the upper-right of the plot shows most of the variables were either moderately or highly correlated with each other.
+
+
+The data is then divided into known and the unknown data for the further analysis.
+
+## Logistic model
+
+```{r,echo=FALSE,warning=FALSE}
+
+my.data <- microtus
+
+my.data$Group=as.numeric(my.data$Group)-1
+Known_data <- subset(my.data, Group!= 2)
+unknown_data <- subset(my.data, Group==2)
+
+
+# Now we do logistic regression of our Model followed by AIC and p value checking
+model=glm(Group~M1Left+Height+Foramen,data=Known_data,family=binomial)
+
+summary(model)
+AIC(model)
+
+# MSE of the model
+MSE.glm <- mean((predict(model, newdata = Known_data, type = "response")-Known_data$Group)^2)
+MSE.glm
+
+cat("Cross validation with 10 fold: ")
+library(boot)
+(cv.err.10 <- mean(cv.glm(Known_data, model, K = 10)$delta))
+
+```
+The logistic model (GLM) with the formula `Group~M1Left+Height+Foramen`, where the group is the
+response and the other M1Left, Height, and foramen as the predictor variables. The deviance 
+residuals from the summary show that the data are negatively skewed. The variable L1left looks
+statistically significant at 0.05. The null deviance is 123.28 that shows how well our response 
+variable has predicted the outfitted model, including only the intercept (grand mean) whereas,
+residual deviance with 21.10 inclusion of independent variables. Deviance is a measure of the 
+goodness of fit of a model. The lowest numbers always indicate a good fit.
+The AIC of my first model, the logistic model, is 29.1. The Mean square error of my fitted model is
+0.0362. Whereas cross-validation with 10 fold is 0.0475, and it is slightly more than the mean square
+error. 
+
+
+
+## Decision tree
+
+Now, I also construct a regression tree selecting all the variables.
+```{r,echo=FALSE,warning=FALSE}
+library(rpart)
+library(party)
+library(partykit)
+dt1.tree <- rpart(Group~.,data= Known_data, control = rpart.control( minsplit = 10))
+plot(as.party(dt1.tree),
+     tp_args = list(id = FALSE))
+```
+
+Now, I also construct a regression tree selecting all the variables to see which variables were 
+chosen.  In the regression tree, the main root of the tree is M1Left with the height and M2Left. 
+These variables are the same as the model I chose above. These results seemed to follow the summary
+results from the model selected below with step regression, which is why the step model seems better 
+than my GLM above.
+
+Here, M2Left has replicated therefore, I plot the Mean DecreaseinGini plot. This plot shows the 
+average (mean) of a variable's total decrease in node impurity, weighted by the proportion of samples
+reaching that node in each individual decision tree in the random forest. A higher Mean Decrease in 
+Gini indicates higher variable importance. I would replace the duplicates with the other variable by
+viewing the importance of the variables from the mean DecreaseinGini plot.  
+
+```{r,echo=FALSE,warning=FALSE}
+require(randomForest)
+fit=randomForest(factor(Group)~.,data=Known_data)
+varImpPlot(fit)
+
+```
+The mean DecreaseinGini shows that the Foramen have the least importance whereas, M1Left and the 
+Rostrum variables have the highest importance. 
+
+
+## Stepwise selection
+
+In order to see which model performed better with the data, I used the stepwise selection method. 
+
+```{r,echo=FALSE,warning=FALSE}
+#use stepwise regression for the glm
+step_known <- step(glm(Group ~., data = Known_data, family = "binomial"), direction="both")
+
+#extract the formula with the lowest aic
+form_known <- formula(step_known)
+form_known
+
+model_step <- glm(Group ~ M1Left + M3Left + Foramen + Length + Height, data=Known_data,family=binomial)
+AIC(model_step)
+summary(model_step)
+
+# MSE from step regression best model
+MSE.glm_step <- mean((predict(model_step, newdata = Known_data, type = "response")-Known_data$Group)^2)
+MSE.glm_step
+
+cat("Cross validation with 10 fold: ")
+(cv.err_step.10 <- mean(cv.glm(Known_data, model_step, K = 10)$delta))
+
+```
+
+The third model that fitted is stepwise selection in the hope of obtaining a better model than
+the previous model. I hoped to improve the selection of variable in my model.First, I used all
+the variables in both directions. AIC of the stepwise selection varied from 30 to 27.7. The lowest
+of the AIC that we got is 27.7 with the group as the response variable and M1left + M3Left + Foramen+
+Length+ Height and the predictor variables. The previous models suggest that the height and the 
+foramen were not statistically significant, whereas this model suggests that using these variables
+gives us the lowest AIC. Therefore, this model indicates that the omission of Foramen and Length is
+not a good idea. With all the variables as the predictor variable, The AIC of the model is the highest
+whereas, eliminating two variables M2Left and Rostrum, decreased AIC to the lowest was interesting 
+to view how the elimination can change the performance of the model. The MSE of the model is 0.027
+is slightly smaller than the Logistic model. The CV of the model is 0.060 is slightly more than the
+above model.
+
+
+Hence, eventually, the best model that I chose from the step selection will use this model for 
+predicting the rest of the unknown data (species). The AIC for this model was 27.70 is smaller
+(thus better) than our previous models. Also, the MSE for this model was only 0.027 is smaller 
+(thus better) than our previous models. Also, the cross-validation error was 060 is a bit higher
+than our MSE, but still better than the CV of our model. Anyway, I will be selecting this model 
+with AIC 0.27 from obtained step regression for the prediction purpose.
+
+The unknown data is predicted and the 5 of them is also printed below. 
+
+```{r,echo=FALSE,warning=FALSE}
+Known_data <- subset(my.data, Group!= 2)
+unknown_data <- subset(my.data, Group==2)
+
+# Using chosen model from stepwise regression
+Final_formula=Group~M1Left+M3Left+Foramen+Height+ Length
+model=glm(Final_formula,data=Known_data,family=binomial)
+pred=predict(model,newdata=unknown_data,type="response")
+summary(model)
+for(j in 1:nrow(unknown_data)){
+  if(pred[j]<0.5)
+  {unknown_data[j,1]="multiplex"}
+  if(pred[j]>=0.5){unknown_data[j,1]="subterraneous"}
+}
+
+cat("This is the first 5 rows of the predictions for unclassified observations")
+head(unknown_data,5) 
+```
+
+Now, I want to count the total no of predicted values. We found out that 129 of the total unknown 
+data is classified as the multiplex species and 70 of the total unknown data is classified as the subterraneous species. 
+
+```{r,echo=FALSE,warning=FALSE}
+cat("Count of predicted class:")
+table(unknown_data$Group)
+
+```
+
+
+
+
+
+
+
+# 2.
+
+        ` Relationship between the marginal LR and the omnibus LR`
+
+The data is taken from "The evidential value of micro spectrophotometry measurements
+made for pen inks", by Martyna et al. (2013). The author was focused on developing a 
+type of similarity score, between two ink samples, known as a forensic likelihood ratio.
+The sample for the data was taken from the 40 inks.  36 of the 40 ins was from the ballpoint 
+pen, and 4 of the ink is from the gel pen. They came either from the Polish market or were 
+gifted presented to the institute of Forensic Research. Lines were created
+by drawing on the white printing paper. The fragment of paper was viewed on the microscope. 
+The colors used for the analysis were red, green, and blue.  The data are given in the dat.LLR.int
+file has a total of 820 samples with the six variables.
+The variables described as:
+1.	Comp : comparison of interest (from 1 to 820)
+2.	Omni.LLR.int : numeric values of for the Log of the Omnibus likelihood ratio.
+3.	Type : Type of comparison, either “wi” for within-source comparison or “bw” for between-source comparison
+4.	LLR.x : The Log Likelihood ratio for the X color variable
+5.	LLR.y : The Log Likelihood ratio for the Y color variable
+6.	LLR.z : The Log Likelihood ratio for the Z color variable
+
+The point of interest in our project is to find the relationship between the marginal 
+LR’s (i.e. LLR.x, LLR.y, and LLR.z) and the Omnibus LR (i.e. Omni.LLR.int).
+
+After loading the data, the values of the data are visualized. From the graphs, it looks like all
+the variables individually have some relationship with omnibus LR.  All the variable seems to have
+a linear relationship(quadratic); however, we cannot say and assume to have it until we have some evidence.
+ To start with, I have plotted a pair-wise plot and see their correlation plot with coefficients. 
+ For the correlation plot, the correlation between LLR.x, LLR.y, and LLR.z look moderately correlated
+ with the 0.78, 0.67, and 0.659, respectively. 
+
+```{r,echo=FALSE,warning=FALSE}
+library(ggplot2)
+library(GGally)
+
+an.data <- 
+  read.csv(file = 'https://raw.githubusercontent.com/yamunadhungana/data/master/dat.LLR.int.csv', sep = ",")
+# head(an.data)
+
+ggpairs(an.data, columns = 1:7, ggplot2::aes())
+
+
+plot(Omni.LLR.int~LLR.x, data = an.data)
+plot(Omni.LLR.int~LLR.y, data = an.data)
+plot(Omni.LLR.int~LLR.z, data = an.data)
+
+```
+Further, I have made a combination of different variables and different interactions.
+The model that follows in the project is a single variable, two variables (also variables
+with interactions), and three variables. I have plotted a total of 11 models for linear
+regression.
+
+
+# 1. Linear regression 
+
+Firstly, I Fit the linear regression and viewed the p- values and R- squared. Then the 
+MSE is calculated. Additionally, to make sure, the same process was repeated to see
+P-values and MSE for the quadratic models. Finally, I performed the Anova to test to see 
+the better fit.
+
+The model mentioned for a single variable is fitted with the LLR.x, LLR.y, and LLR.z with
+Omnibus.LLR  individually as `Omni.LLR.int ~ LLR.x`, `Omni.LLR.int ~ LLR.y`, `Omni.LLR.int
+~ LLR.z`  In the two pair models, I combined these variables and also saw the interaction with
+these variables. The same method follows with the three variables. Although the table is made
+individually according to no of the variable used, these variables are combinedly compared. Mean
+square error is the average squared difference between the estimated values and the actual value.
+The low MSE is always better. Therefore, by looking at the table for the MSE of a model the decision
+is taken. Hence by the MSE, all the variables combined have the linear regression.
+
+# 1.1 Linear regression for single variable
+```{r,echo=FALSE,warning=FALSE}
+
+model1 <- lm(Omni.LLR.int~LLR.x, data = an.data)
+# summary(model1)
+model2 <- lm(Omni.LLR.int~LLR.y, data = an.data)
+# summary(model2)
+model3 <- lm(Omni.LLR.int ~ LLR.z, data = an.data)
+# summary(model3)
+
+# MSE for these terms 
+MSE_model1 <-
+  mean((predict(model1, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+MSE_model2 <-
+  mean((predict(model2, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+MSE_model3 <-
+  mean((predict(model3, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+
+# MSE for the these model
+no_int <- cbind(MSE_model1, MSE_model1,MSE_model3)
+colnames(no_int) <- c("Model-1", "MOdel-2", "model-3")
+knitr::kable(no_int, digits = 3,
+             caption = "MSE for linear regression model with single variable")
+
+```
+
+
+# 1.2 Linear Regression for two pair
+
+```{r,echo=FALSE,warning=FALSE}
+
+model1_a <- lm(Omni.LLR.int~LLR.x+ LLR.y, data = an.data)
+model2_a <- lm(Omni.LLR.int~LLR.y+ LLR.z, data = an.data)
+model3_a <- lm(Omni.LLR.int~LLR.z+ LLR.x, data = an.data)
+
+
+# Adjusted R
+ad_r1a.lm <- summary(model1_a)$r.squared
+ad_r2a.lm <- summary(model2_a)$r.squared
+ad_r3a.lm <- summary(model3_a)$r.squared
+
+
+## MSE
+MSE_model1_a <-
+  mean((predict(model1_a, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+MSE_model2_a <-
+  mean((predict(model2_a, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+MSE_model3_a <-
+  mean((predict(model3_a, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+# 
+# # Adjusted R squared Table
+# adjus_r2 <-  cbind(ad_r1a.lm, ad_r2a.lm,ad_r3a.lm)
+# colnames(adjus_r2) <- c("Model-4", "MOdel-5", "model-6")
+# knitr::kable(adjus_r2, digits = 3,
+#              caption = "Adjusted R for linear regression model with two variables")
+
+
+# MSE table
+with_int2 <- cbind(MSE_model1_a, MSE_model2_a,MSE_model3_a)
+colnames(with_int2) <- c("Model-4", "MOdel-5", "model-6")
+knitr::kable(with_int2, digits = 3,
+             caption = "MSE for linear regression model with two variables")
+
+
+
+# Interaction with the pairs Linear regression
+model1_b <- lm(Omni.LLR.int~LLR.x+LLR.y+ LLR.y:LLR.x, data = an.data)
+model2_b <- lm(Omni.LLR.int~LLR.y+LLR.z+ LLR.z:LLR.y, data = an.data)
+model3_b <- lm(Omni.LLR.int~LLR.z+LLR.x+ LLR.x:LLR.z, data = an.data)
+
+rsq_1b <- summary(model1_b)$r.squared
+rsq_2b <- summary(model2_b)$r.squared
+rsq_3b <- summary(model3_b)$r.squared
+
+
+MSE_model1_b <-
+  mean((predict(model1_b, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+MSE_model2_b <-
+  mean((predict(model2_b, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+MSE_model3_b <-
+  mean((predict(model3_b, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+
+# # Adjusted R squared
+# adjus_r4 <-  cbind(rsq_1b, rsq_2b,rsq_3b)
+# colnames(adjus_r4) <- c("Model-7", "MOdel-8", "model-9")
+# knitr::kable(adjus_r4, digits = 3,
+#              caption = "Adjusted R for linear regression(interacting) model with two variables")
+
+
+# MSE error
+with_intquad4 <- cbind(MSE_model1_b, MSE_model2_b,MSE_model3_b)
+colnames(with_intquad4) <- c("Model-7", "MOdel-8", "model-9")
+knitr::kable(with_intquad4, digits = 3,
+             caption = "MSE for linear regression(interacting) model with two variables")
+
+
+```
+
+
+# 1.3 Linear model for three variables
+
+```{r,echo=FALSE,warning=FALSE}
+
+model <- lm(Omni.LLR.int~LLR.z+LLR.y+ LLR.x, data = an.data )
+model1_c <- lm(Omni.LLR.int~LLR.x+LLR.y+ LLR.z+ LLR.x*LLR.y*LLR.z, data = an.data)
+
+rsqfor3 <- summary(model)$r.squared
+rsqform1c <- summary(model1_c)$r.squared
+
+
+MSE_model <-
+  mean((predict(model, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+MSE_model1_c <-
+  mean((predict(model1_c, newdata = an.data, type = "response")-an.data$Omni.LLR.int)^2)
+
+
+
+# # Adjusted R squared
+# adjr_3var <-  cbind(rsqfor3, rsqform1c)
+# colnames(adjr_3var) <- c("Model-10", "MOdel-11")
+# knitr::kable(adjr_3var, digits = 3,
+#              caption = "Adjusted R for linear regression(interacting) model with three variables")
+
+
+# MSE error
+with_intquad4 <- cbind(MSE_model, MSE_model1_c)
+colnames(with_intquad4) <- c("Model-10", "MOdel-11")
+knitr::kable(with_intquad4, digits = 3,
+             caption = "MSE for linear regression(interacting) model with three variables")
+
+
+```
+
+
+# 1.4 Anova for all the linear model
+
+```{r,echo=FALSE,warning=FALSE}
+
+anov <-
+  anova(model1, model2, model3, model1_a,model2_a,model3_a,model1_b,model2_b,model3_b,model,model1_c, test='Chisq')
+anov
+
+```
+
+From the linear regression, The MSE of the model varies from 6.527 being the highest and 3.212 
+being the lowest. The model 11 that interact with all the variable has the least MSE. Likewise,
+from the ANOVA test, model 4, model 7 and model 11 seem to have statistically significant. ANOVA shows that 
+the variable x, y has a linear relationship. each model looking significant has the variable either x and y or the all 3 variables. Hence for linear regression we can say that x and y have linear relationship also we can say that x, y and z have linear relationship. 
+
+We cannot be sure since visually the data looks some what quadratic therefore I would like to fit the quadratic model and varify.
+
+
+# 2. Quadratic model 
+
+## 2.1 Quadratic model for single variable
+
+```{r,echo=FALSE,warning=FALSE}
+
+# quadratic model
+
+
+# Now quadratic model for this first model
+new.data <- subset(an.data, select= c(Omni.LLR.int,LLR.x, LLR.y,LLR.z))
+new.data$llrx2 <- new.data$LLR.x^2
+new.data$llry2 <- new.data$LLR.y^2
+new.data$llrz2 <- new.data$LLR.z^2
+
+# quadratic Regression
+qmod1 <- lm(Omni.LLR.int~LLR.x + llrx2, data=new.data)
+qmod2 <- lm(Omni.LLR.int~LLR.y + llry2, data=new.data)
+qmod3 <- lm(Omni.LLR.int~LLR.z + llrz2, data=new.data)
+
+
+# Adjusted R
+ad_r1 <- summary(qmod1)$r.squared
+ad_r2 <- summary(qmod2)$r.squared
+ad_r3 <- summary(qmod3)$r.squared
+
+
+
+# MSE
+MSE_qmod1 <-
+  mean((predict(qmod1, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+MSE_qmod2 <-
+  mean((predict(qmod2, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+MSE_qmod3 <-
+  mean((predict(qmod3, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+
+
+# # Adjusted R squared
+# adjus_r1 <-  cbind(ad_r1, ad_r2,ad_r3)
+# colnames(adjus_r1) <- c("Model-1Rsq", "Model-2rsq", "model-3rsq")
+# knitr::kable(adjus_r1, digits = 3,
+#              caption = "Adjusted R for quadratic regression model with single variable")
+
+
+# MSE error
+no_intquad <- cbind(MSE_qmod1, MSE_qmod2,MSE_qmod3)
+colnames(no_intquad) <- c("qModel-1", "qMOdel-2", "qmodel-3")
+knitr::kable(no_int, digits = 3,
+             caption = "MSE for quadratic regression model with single variable")
+
+```
+
+## 2.2 Quadratic model for two variables
+
+```{r,echo=FALSE,warning=FALSE}
+
+# Quadratic model 
+
+qmod4 <- lm(Omni.LLR.int~LLR.x +LLR.y +llry2 + LLR.x:(LLR.y+llry2), data=new.data)
+qmod5 <- lm(Omni.LLR.int~LLR.y +LLR.z+llrz2 + LLR.y:(LLR.z+llrz2), data=new.data)
+qmod6 <- lm(Omni.LLR.int~LLR.z +LLR.x+llrx2 + LLR.z:(LLR.x+llrx2), data=new.data)
+
+rsq_qu4 <- summary(qmod4)$r.squared
+rsq_qu5 <- summary(qmod5)$r.squared
+rsq_qu6 <- summary(qmod6)$r.squared
+
+MSE_qmod4 <-
+  mean((predict(qmod4, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+MSE_qmod5 <-
+  mean((predict(qmod5, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+MSE_qmod6 <-
+  mean((predict(qmod6, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+
+
+# # Adjusted R squared
+# adjus_r2 <-  cbind(rsq_qu4, rsq_qu5,rsq_qu6)
+# colnames(adjus_r2) <- c("Model-4", "MOdel-5", "model-6")
+# knitr::kable(adjus_r2, digits = 3,
+#              caption = "Adjusted R for quadratic regression model with two variables")
+
+
+# MSE error
+with_intquad3 <- cbind(MSE_qmod4, MSE_qmod5,MSE_qmod6)
+colnames(with_intquad3) <- c("Model-4", "MOdel-5", "model-6")
+knitr::kable(with_intquad3, digits = 3,
+             caption = "MSE for quadratic regression model with two variables")
+
+```
+
+
+# 2.3 Quadratic model for three variables
+
+```{r,echo=FALSE,warning=FALSE}
+
+qmod7 <-lm(Omni.LLR.int~LLR.x+ LLR.y+LLR.z+ LLR.x:(LLR.y+llry2)+ LLR.x:(LLR.z+ llrz2), data = new.data)
+paste0("R squared quadratic model for model 7 is : ", summary(qmod7)$r.squared)
+
+# qmod8 <- lm(Omni.LLR.int~LLR.x+ LLR.y+LLR.z+llrx2+llry2+llrz2+ LLR.x*LLR.y + LLR.y*LLR.z+ LLR.z*LLR.x+LLR.x*LLR.y*LLR.z, data = new.data)
+# summary(qmod8)r.squared)
+
+
+MSE_qmod7 <-
+  mean((predict(qmod7, newdata = new.data, type = "response")-new.data$Omni.LLR.int)^2)
+paste0("MSE of quadratic model for model 7is : ", MSE_qmod7)
+
+# MSE_qmod8 <-
+#   mean((predict(qmod8, newdata = new.data, type = # "response")-new.data$Omni.LLR.int)^2)
+# MSE_qmod8
+
+```
+
+## 2.4 Anova for quadratic models
+
+```{r,echo=FALSE,warning=FALSE}
+q_anov <-
+  anova(qmod1, qmod2,qmod3,qmod4,qmod5,qmod6,qmod7, test='Chisq')
+q_anov
+
+```
+
+Since the same process is repeated in the quadratic model. MSE of the models is viewed. The
+MSE of the models varies from 7.36 being maximum and 2.3 being the minimum model-6 that has
+the x and y interacting with the other models shows the least MSE. The ANOVA analysis shows 
+only one model as significant. We did not get any values for the other models. That may be 
+because of the values that are too small to calculate. However, model 6 appears to be significant.
+
+Again, I would like to compare the MSE for both linear and quadratic models. Since the MSE for the
+linear regression that I assumed better fit has the value of 3.212 and the better fit for the 
+quadratic model is 2.3 therefore because of the least MSE, the quadratic model has the better 
+fit with the interaction between x and y. The model that we find to have the better is `Omni.LLR.int
+~ LLR.x + LLR.y + llry2 + LLR.x:(LLR.y + llry2) `  Therefore LLR.x and LLR.y interaction with x has 
+the better fit and has the quadratic relationship.
+
+Hence, from the linear and the quadratic model, it apperas that x and y have linear realationship.The same thing can be proved for the quadratic model, however the quadratic model is the better fit. Therefore,
+from my analysis, I find out that the x and y has a quadratic relation.
+
+
+```{r,echo=FALSE,warning=FALSE}
+# plot(qmod6)
+
+```
+
+
+
+```{r}
+# http://www.public.asu.edu/~gwaissi/ASM-e-book/module403.html
+# https://stats.stackexchange.com/questions/409537/how-to-include-an-interaction-with-a-
+# quadratic-term
+# http://www.public.asu.edu/~gwaissi/ASM-e-book/module403.html
+# https://cran.r-project.org/web/packages/interactions/vignettes/interactions.html
+# https://mattchoward.com/quadratic-regression-in-r/
+# https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.738.1654&rep=rep1&type=pdf
+# http://www.shodor.org/interactivate/discussions/BivariateDataRelations/
+# https://stat.ethz.ch/pipermail/r-help/2011-September/289291.html
+# https://blog.minitab.com/blog/adventures-in-statistics-2/regression-analysis-how-do-i-
+# interpret-r-squared-and-assess-the-goodness-of-fit
+# https://www.scribbr.com/statistics/multiple-linear-regression/
+# https://api.rpubs.com/tomanderson_34/lrt
+# The evidential value of microspectrophotometry measurements made for pen inks Martyna et al. (2013)
+# # referance : Brian S. Everitt, Torsten Hothorn - A handbook of statistical analyses using R-CRC 
+# (2010)
+
+
+
+```
+
+

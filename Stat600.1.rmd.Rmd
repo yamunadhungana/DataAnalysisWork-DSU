@@ -1,0 +1,142 @@
+---
+title: "Getting Started"
+author: Yamuna Dhungana
+date: June 3rd 2020
+output: pdf_document
+
+
+references:
+- id: wansink2009joy
+  type: article-journal
+  title: 'The joy of cooking too much: 70 years of calorie increases in classic recipes'
+  source: 'Annals of Internal Medicine'
+  author:
+  - family: Wansink
+    given: Brian
+  - family: Payne
+    given: Collin
+  volume: 150
+  issue: 150
+  page: 291-292
+  issued:
+    year: 2009
+    month: 2
+---
+
+# Instructions
+
+This document runs a simple analysis of the Table 1 from [@wansink2009joy]. Edit the header information to show your name and the date you complete the assignment.
+
+Modify this document to analyze either Calories per Serving or Servings per Recipe. Document any changes you make in the literate portion of the file. Comment on your choice of measure to analyze.
+
+Change the name of this file to match your user name on D2L, keeping the 'Rmd' extension, and include week number in the title (for example, `Peter.Claussen.1.Rmd`). Upload this file to D2L. Typeset this file to Word or PDF and upload the result to D2L as well.
+
+
+## Data
+Measure | 1936 | 1946 | 1951 | 1963 | 1975 | 1997 | 2006 
+:-------|-----:|-----:|-----:|-----:|-----:|-----:|-----:
+calories per recipe (SD) | 2123.8 (1050.0) | 2122.3 (1002.3) | 2089.9 (1009.6) | 2250.0 (1078.6) | 2234.2 (1089.2) | 2249.6 (1094.8) | 3051.9 (1496.2)
+calories per serving (SD) | 268.1 (124.8) | 271.1 (124.2) | 280.9 (116.2)  | 294.7 (117.7) | 285.6 (118.3) | 288.6 (122.0) | 384.4 (168.3)
+servings per recipe (SD) | 12.9 (13.3) | 12.9 (13.3) | 13.0 (14.5) | 12.7 (14.6) | 12.4 (14.3) | 12.4 (14.3) | 12.7 (13.0)
+Table: Mean and (SD) for selected recipes from "Joy of Cooking" 
+
+
+# Analysis
+
+### Enter data
+```{r}
+CookingTooMuch.dat <- data.frame(
+  Year=c(1936, 1946, 1951, 1963, 1975, 1997, 2006),
+  CaloriesPerRecipeMean = c(2123.8, 2122.3, 2089.9, 2250.0, 2234.2, 2249.6, 3051.9),
+  CaloriesPerRecipeSD = c(1050.0, 1002.3, 1009.6, 1078.6, 1089.2, 1094.8, 1496.2),
+  CaloriesPerServingMean = c(268.1, 271.1, 280.9, 294.7, 285.6, 288.6, 384.4),
+  CaloriesPerServingSD = c(124.8, 124.2, 116.2, 117.7, 118.3, 122.0, 168.3),
+  ServingsPerRecipeMean = c(12.9, 12.9, 13.0, 12.7, 12.4, 12.4, 12.7),
+  ServingsPerRecipeSD = c(13.3, 13.3, 14.5, 14.6, 14.3, 14.3, 13.0)
+)
+```
+
+### Create values for confidence interval plot
+Wansink reports that 18 recipes were analyzed.
+
+```{r}
+n <- 18
+```
+
+Assume a significance level $\alpha$ of 5%.
+
+```{r}
+alpha <- 0.05
+```
+
+Use standard formula for standard error $\sigma / \sqrt{n}$ and confidence interval $t_{\alpha/2} \times s.e.$.
+
+```{r}
+StandardError <- function(sigma, n) {
+  sigma/sqrt(n)
+}
+ConfidenceInterval <- function(sigma, n) {
+  qt(1-alpha/2, Inf)*StandardError(sigma,n)
+}
+```
+
+Create a variable for plotting and calculate upper and lower bounds using confidence intervals.
+
+Answer: Here I create a variable to modify this document to analyze Servings per Recipe
+
+```{r}
+PlotCookingTooMuch.dat <- CookingTooMuch.dat
+
+PlotCookingTooMuch.dat$ServingsPerRecipe <- PlotCookingTooMuch.dat$ServingsPerRecipeMean
+PlotCookingTooMuch.dat$Lower <- PlotCookingTooMuch.dat$ServingsPerRecipe - ConfidenceInterval(CookingTooMuch.dat$ServingsPerRecipeSD,n)
+PlotCookingTooMuch.dat$Upper <- PlotCookingTooMuch.dat$ServingsPerRecipe + ConfidenceInterval(CookingTooMuch.dat$ServingsPerRecipeSD,n)
+PlotCookingTooMuch.dat <- PlotCookingTooMuch.dat[,c("Year","ServingsPerRecipe","Lower","Upper")]
+```
+
+Examine the values to make sure we've entered correctly.
+
+```{r}
+print(PlotCookingTooMuch.dat)
+```
+
+Wansink did not report any confidence intervals for serving per recipe. Therefore, I used **compValues** as a reference value.
+
+```{r}
+CompValues <- PlotCookingTooMuch.dat[c(1,7),c("Lower","Upper")]
+ReferenceValues <- matrix(c(7.755826,19.04417,6.694417,18.70558),nrow=2,byrow=TRUE)
+CompValues
+ReferenceValues
+any(abs(CompValues-ReferenceValues)>0.1)
+```
+
+
+We no longer need the original data.
+```{r}
+CookingTooMuch.dat <- NULL
+```
+
+# Plot the table
+
+```{r}
+plot(ServingsPerRecipe ~ Year, data=PlotCookingTooMuch.dat,
+     col="blue", pch=19,
+     main="Servings per Recipe", 
+     ylab="Servings", 
+     ylim=c(min(PlotCookingTooMuch.dat$Lower), max(PlotCookingTooMuch.dat$Upper)))
+lines(ServingsPerRecipe ~ Year, data=PlotCookingTooMuch.dat, 
+      lty="dashed", col="blue", lend=2)
+segments(x0=PlotCookingTooMuch.dat$Year, 
+         y0=PlotCookingTooMuch.dat$Lower, 
+         x1=PlotCookingTooMuch.dat$Year, 
+         y1=PlotCookingTooMuch.dat$Upper)
+```
+
+# Comments
+
+From this plot, it appears that the average servings per recipe did not change much from 1936 to 2006.
+Whereas, in the paper "Joy of cooking too much", Wansink et Br., has mentioned that the serving size has been increased since 1936. Therefore, Wansink's analysis of serving size for a recipe is not accurate.
+
+# References
+
+
+

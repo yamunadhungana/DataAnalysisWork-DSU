@@ -1,0 +1,281 @@
+---
+title: "Homework 10"
+author: ''
+date: ''
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Instructions
+
+There are five exercises below. All are optional. You may solve these, one solution per exercise, and replace the scores from these solutions with your least favorite exercises from the prevous homework. You will be expected to use standard R for this exercises, if you choose R. You may also use SAS or Python.
+
+
+# Exercise 1.
+
+Consider the Hidalgo data set from Homework 9. Load the data, and calculate mean and median. Calculate the standard error of the mean using
+
+$$
+s.e._{mean} = s /\sqrt{n}
+$$
+
+and the standard error of the median using
+
+$$
+s.e._{med} = 1.253 \times s.e._{mean}
+$$
+### Part a.
+
+```{r}
+hidalgo.dat = read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/hidalgo.dat",
+                         header = T,
+                         sep = ",")
+
+mean.hidalgo <- mean(hidalgo.dat$X.060)
+mean.hidalgo
+
+median.hidalgo <- median(hidalgo.dat$X.060)
+median.hidalgo
+standard.dev <- sd(hidalgo.dat$X.060)
+standard.dev
+
+standard.error.mean <- standard.dev/sqrt(length(hidalgo.dat$X.060))
+standard.error.mean
+
+standard.error.med <- 1.253 * standard.error.mean
+standard.error.med
+
+```
+
+
+### Part b.
+
+Calculate a jackknife estimate of the mean and a jackknife standard error of the mean of the Hidalgo data. How do these compare with the estimates in part a.?
+
+```{r}
+y <- hidalgo.dat$X.060
+n <- length(y)
+hat.theta.rep <- {}
+for(i in 1:n){
+  hat.theta.rep[i] = mean(y[-i])
+}
+bar.theta <- mean(hat.theta.rep)
+# jackknife estimate of the mean
+bar.theta
+hat.theta <- mean.hidalgo
+# bias
+print(bias.jack <- (n-1) * (bar.theta - hat.theta))
+
+#jackknife standard error for mean would be 
+jackknife.stderr.mean <- sqrt((n-1) * mean((hat.theta.rep - mean(hat.theta.rep))^2))
+jackknife.stderr.mean
+# which can also be calculated as:
+variance.of.hat.theta.rep <- var(hat.theta.rep)
+jackknife.var = ((n-1)^2/n)*variance.of.hat.theta.rep
+jackknife.stderr.mean = sqrt(jackknife.var)
+jackknife.stderr.mean
+  
+```
+
+
+### Part c. 
+
+Calculate a jackknife estimate of the median and a jackknife standard error of the median of the Hidalgo data. How do these compare with the estimates in part a.?
+
+```{r}
+print(hat.theta <- median(y))
+  
+  n <- length(y)
+  hat.theta.rep <- {}
+  for(i in 1:n){
+    hat.theta.rep[i] = median(y[-i])
+  }
+  bar.theta <- mean(hat.theta.rep)
+  bar.theta
+  hat.theta <- median.hidalgo
+  # bias
+  print(bias.jack <- (n-1) * (bar.theta - hat.theta))
+
+  #jackknife standard error for median would be 
+  jackknife.stderr.median <- sqrt((n-1) * mean((hat.theta.rep - mean(hat.theta.rep))^2))
+  jackknife.stderr.median
+
+```
+
+### Part d. 
+
+Calculate a bootstrap estimate of the mean and of the median of the Hidalgo data, and the associated standard errors. Use $B = 1000$ samples. How do these compare with the estimates in parts a. and b.?
+
+```{r}
+ B <- 1000
+  star.theta.rep <- rep(0,B)
+  star.theta <- mean(y)
+  for(i in 1:B) {
+    star.theta.rep[i] <- mean(sample(y,replace=TRUE))
+  }
+  # bootstrap estimate of the mean
+  star.bar.theta <- mean (star.theta.rep)
+  star.bar.theta
+  
+  # BS estimate of standard error for mean
+  se.boot.mean <- sd(star.theta.rep - mean(star.theta.rep))
+  se.boot.mean
+
+```
+
+
+# Exercise 2.
+
+Consider the Lacanne data. We want to compare percent organic matter (`POM`) between farms that used `Cover` crops and those that did not, and we'll use ratios to compare the two practices. We will also pair them by nearest city. Edit the code below to read and properly format the data in `lacanne2018.csv`.
+
+```{r,eval=FALSE}
+lacanne2018.dat <- read.csv("path/to/lacanne2018.csv")
+lacanne2018.dat$Pair <- ceiling(lacanne2018.dat$Order/2)
+LacanneWide <- reshape(lacanne2018.dat,
+                     idvar=c('Pair'),
+                     direction="wide",
+                     v.names="POM",
+                     timevar="Cover",
+                     drop=c('Order','Lat', 'Lon', 'Organic', 'Insecticide', 'Pesticide', 'Tillage', 'Grazed', 'Composite', 'Study.Year'))
+LacanneWide <- LacanneWide[with(LacanneWide,!(is.na(POM.Y)| is.na(POM.N))),]
+```
+
+Let $\theta$ be the ratio of the two population means:
+
+$$
+\theta = \frac{\mu_{POM.Y}}{\mu_{POM.N}}
+$$
+
+Calculate jackknife and boostrap estimates for $\widehat{\theta}$, and for the standard error for $\widehat{\theta}$.
+
+### Part a. Jacknife.
+
+```{r}
+```
+
+### Part b. Bootstrap.
+
+```{r}
+```
+
+### Part c. 
+
+Consider the estimate for the standard error of the ratio of two means,
+
+$$
+s.e._{m_1/m_2} = \sqrt{ \frac{1}{n_1}\left( \frac{s_1}{m_1}\right)^2 + \frac{1}{n_2}\left( \frac{s_2}{m_2}\right)^2}
+$$
+
+where $m$ and $s$ are the corresponding mean and standard devation estimates and $n$ is sample size. Calculate this standard error for the ratio $m_{POM.Y}/m_{POM.N}$ How does this compare to the jackknife and bootstrap estimates?
+
+```{r}
+```
+
+
+
+
+# Exercise 3
+
+### Part a.
+
+Consider the ELO data. Subset the data to exclude non-qualifiers - `NQ` - then create a factor `AA`. This will indicate if the wrestler that as All-American (top 8 places), or did not place in the tournament.  Use `ActualFinish` equals `AA`. Next, calculate an effect size $d$ for the difference in ELO scores between All-American and non-All-American wrestlers; you will need to calculate means and standard deviations as necessary. Since the populations are unbalanced, you will need to use a pooled sd of the form
+
+$$
+s_{pooled} = \sqrt{\frac{(n_1-1) s_1^2 + (n_2-1) s_2^2} {n_1 + n_2 -2}}
+
+$$
+
+```{r}
+
+```
+
+## Part b. 
+
+Calculate either a jackknife and bootstrap estimates of the error of $d$. Since ELO is determined by a wrestlers success within a weight class, you will need to honor this grouping (or sampling) of the data. Calculate the jackknife by excluding one `Weight` at a time from the data, and recalculating $d$; since there are 10 weight classes there should be 10 jackknfe replicates. 
+
+For the bootstrap, sample from the 10 weight classes (use `unique` or `levels`). Note that you will not be able simply subset the data on something like `Weight %in% samples`, since the bootstrap will require duplicate samples. Instead, iterate over weight class samples and merge subsets of the original data.
+
+
+
+```{r}
+
+```
+
+
+### Part c. 
+
+Compare your estimates of standard error to the parametric estimate, approximated by
+
+
+$$
+s.e._d ~ \sqrt{\frac{n_1 + n_2}{n_1 n_2} + \frac{d^2} {2(n_1 + n_2)}}
+
+$$
+
+```{r}
+```
+
+# Exercise 4
+
+### Part a. 
+
+Consider the ELO data. Load the data, subset to remove `NQ` as described above. Use the code below (or formula from previous homework) to perform a one-way analysis of variance, and report the $F$ ratio and $P(>F)$. (set `eval=TRUE`).
+
+```{r,eval=FALSE}
+summary(aov(ELO ~ factor(AA), data=elo.dat))
+```
+
+### Part b.
+
+Permute `ELO` over `AA` - that is, create a new data set on the assumption that `AA` has no influence on `ELO`. Do this 1000 times, and calculate the $F$ ratio for each. Plot the distribution of $F$, and calculate how many $F$ are greater than the $F$ from part a. How does this compare with the estimate for $P(>F)$ from the analysis of variance? Do you need to increase the number of permutations?
+
+```{r}
+```
+
+### Part c.
+
+Repeat part b, but this time, honor the `Weight` grouping. That is, permute `ELO` over `AA` only within observations grouped by `Weight`. Compare this to the analysis of variance, given by
+
+```{r,eval=FALSE}
+summary(aov(ELO ~ factor(Weight) + factor(AA), data=elo.dat))
+```
+
+
+```{r}
+```
+
+How many permutations would you expect are required to identify a larger F value?
+
+# Exercise 5.
+
+
+Repeat Exercise 4, but with the data from Exercise 3. Use the subset of the Lacanne data with observations of `POM` paired by reference `Town`. Calculate analysis of variance using the code below.
+
+
+```{r,eval=FALSE}
+lacanne2018.dat <- lacanne2018.dat[lacanne2018.dat$Pair %in% LacanneWide$Pair,]
+summary(aov(POM ~ factor(Cover), data=lacanne2018.dat))
+summary(aov(POM ~ factor(Cover)+factor(Pair), data=lacanne2018.dat))
+```
+
+### Part b.
+
+Permute `POM` over `COVER` 1000 times, and calculate the $F$ ratio for each. Plot the distribution of $F$, and calculate how many $F$ are greater than the $F$ from part a. How does this compare with the estimate for $P(>F)$ from the analysis of variance? Do you need to increase the number of permutations?
+
+```{r}
+```
+
+### Part c.
+
+Repeat part b, but this time, honor the `Pair` grouping, and permute `POM` within `Pair`. Compare this to the analysis of variance in part a.
+
+```{r}
+```
+
+### Part d. 
+
+Produce `qqnorm` plots for the $F$ values computed in parts b and c. Does this suggest that some of the permuations produced are duplicates? How many permutations would be required to compute an exact $p$-value?
+
+```{r}
+```

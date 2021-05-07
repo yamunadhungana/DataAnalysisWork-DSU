@@ -1,0 +1,466 @@
+---
+title: "Homework 7 - Data Manipulation"
+author: 'Yamuna Dhungana'
+date: 'July 13th 2020'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+There are six exercises below. You are required to provide five solutions, with the same options for choosing languages as with the last exercise. You can provide solutions in two languages for one exercise only (for example, Ex. 1,2,3,5 in R and Ex. 1 in SAS is acceptable, Ex. 1,2,3 in SAS and Ex. 1,2 in R is not).
+
+If you choose SAS for an exercise, you may use `IML`, `DATA` operations or `PROC SQL` at your discretion.
+
+*Warning* I will continue restricting the use of external libraries in R, particularly `tidyverse` libraries. You may choose to use `ggplot2`, but take care that the plots you produce are at least as readable as the equivalent plots in base R. You will be allowed to use whatever libraries tickle your fancy in the midterm and final projects.
+
+## Reuse
+
+For some of these exercises, you may be able to reuse functions written in prior homework. Define those functions here.
+
+```{r}
+options(width = 50)
+library(knitr)
+# Set so that long lines in R will be wrapped:
+opts_chunk$set(tidy.opts=list(width.cutoff=40),tidy=TRUE)
+```
+
+
+
+# Exercise 1. 
+
+### Background
+
+I was interested in health of bee colonies in the United States, so I downloaded data from the USDA NASS site (https://quickstats.nass.usda.gov, listed under `SURVEY > ANIMALS & PRODUCTS > SPECIALTY > HONEY`)
+
+
+## Part a.
+
+Download the file `colonies.csv` if you choose R, or `coloniesSAS.csv` for SAS. This file has been edited to be in the wide format. The first column identifies the state and the next 20 columns are `HONEY, BEE COLONIES - INVENTORY, MEASURED IN COLONIES` for the years 1995-2014. Read the data into a data frame or data table, and subset the data to include only the Central Plains states, 
+
+`'NEBRASKA','KANSAS','SOUTH DAKOTA','MINNESOTA','IOWA','MISSOURI','OKLAHOMA'`.  
+
+**Do not print this table**
+
+```{r}
+datacolonies <- read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/colonies.csv",
+                           header = TRUE, sep = ",", check.names = FALSE)
+data.dat <- datacolonies
+subset.State.dat <- data.dat[data.dat$State %in% c('NEBRASKA','KANSAS',
+                                                   'SOUTH DAKOTA','MINNESOTA','IOWA','MISSOURI','OKLAHOMA'),]
+
+
+```
+
+## Part b.
+
+Reshape the data into the long format. There should be only 3 columns in the long data set, one column identifying ``State`, one column identifying `Year` and one column with `Value` of colony inventory. **Do not print this table**
+
+```{r}
+reshape.data <- reshape(subset.State.dat,
+                        direction = "long",
+                        varying = 2:21,
+                        v.names = c("value"),
+                        timevar = "Year",
+                        times = c(1995:2014))
+
+```
+
+## Part c.
+
+Plot `Value` by `Year`, with `Year` as the independent variable. We will want to see a boxplot, so you may need to specify `Year` to be a factor (or class). The actual Year values may not be correct after the reshape; you are not required to edit the values, but you may if you choose.
+
+```{r}
+ a <-  factor(reshape.data$Year)                      
+# head(reshape.data)
+# dim(reshape.data)                       
+boxplot(reshape.data$value ~ a,
+        data=reshape.data,
+        main="Year vs value",
+        xlab="Values",
+        ylab="Years",
+        col="Blue",
+        border="Red"
+)
+
+```
+
+
+
+# Exercise 2.
+
+### Background
+
+The data for this exercise comes from the same source as Exercise 1, but instead the values are from `HONEY - PRODUCTION, MEASURED IN LB / COLONY`. However, the data in this exercise are in the long format.
+
+## Part a.
+
+Download the file `production.csv` if you choose R, or `productionSAS.csv` for SAS. The first column identifies the `State`, the second column `Year` and the third column is the `Value` for `HONEY - PRODUCTION, MEASURED IN LB / COLONY`. Read the data into a data frame or data table, and subset the data to include only the Central Plains states, 
+
+`'NEBRASKA','KANSAS','SOUTH DAKOTA','MINNESOTA','IOWA','MISSOURI','OKLAHOMA'`.  
+```{r}
+production <- read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/production.csv",
+                         header = TRUE, sep = ",", check.names = FALSE)
+# dim(production)
+# head(production)
+subset.production.dat <- production[production$State %in% c('NEBRASKA','KANSAS',
+                                                            'SOUTH DAKOTA','MINNESOTA','IOWA','MISSOURI','OKLAHOMA'),]
+# or if using match function
+# subset.production.dat <- production[!is.na(match(production$State, c('NEBRASKA','KANSAS','SOUTH DAKOTA','MINNESOTA','IOWA','MISSOURI','OKLAHOMA'))),]
+# dim(subset.production.dat)
+
+```
+
+**Do not print this table**
+
+## Part b.
+
+Reshape or transpose this data from the long form to the wide form. This table should have 7 rows, one for each state in the selection.
+
+```{r}
+reshape.subset.production <- reshape(subset.production.dat,
+                                     direction = "wide",
+                                     idvar = "State",
+                                      timevar = "Year",
+                                      )
+ProductionWide <- reshape.subset.production
+
+```
+
+## Part c.
+
+Name the reshaped table `ProductionWide`. The first column should be the name of the `State`. If you've reshaped correctly, the code below will produce a cluster plot with 7 leaves; edit `eval=FALSE` to `eval=TRUE` to include the plot in your output.
+
+If you choose SAS, I've included similar code to call PROC CLUSTER in the template.
+
+```{r,eval= TRUE}
+row.names(ProductionWide) <- ProductionWide[,1]
+production.dist <- dist(scale(ProductionWide[,-1]), method="euclidean")
+production.clust <- hclust(production.dist,method="ward.D")
+plot(production.clust)
+```
+
+
+
+
+# Exercise 3.
+
+### Part a.
+
+Repeat the table from Homework 5, Exercise 2. The table will contain 30 rows, each corresponding to a unique combination of CV from $8, 12, ..., 28$ and Diff from $5,10, ... , 25$. Add to the table a column `D` by calculating Cohen's $d$ for each row of the table. Also calculate for each row a required replicates using the $z$-score formula and name this `RR`.
+
+Define the table in the space below. **Do not print this table**.
+
+```{r}
+
+sequence.dat <- data.frame( cv = rep(seq(8,28, by=4), each=5), 
+                            diff = rep(seq(5,25, by=5), 6) ) 
+#sequence.dat
+
+# For cohens D 
+D <- round(abs(sequence.dat$diff/sequence.dat$cv), digit = 3)
+#D
+# Z score replicate
+alpha= 0.05
+beta = 0.2
+z_halfalpha = abs(qnorm(alpha/2,mean= 0,sd= 1))
+z_beta = abs(qnorm(beta, mean= 0, sd= 1))
+rr <- round(2*((sequence.dat$cv/sequence.dat$diff)^2)*((z_halfalpha + z_beta)^2), digit= 3)
+# rr
+combined <- cbind(sequence.dat, D, rr)
+
+
+```
+
+### Part b.
+
+Create two subset tables, one that contains the combinations of CV and Diff that require the five largest number of replicates and one the contains the combinations of CV and Diff the five smallest number of replicates. You can determine the subset by ranking or sorting by required replicates. You can add a rank column to your table if you wish. Call one table `LargestFive` and one table `SmallestFive`.
+
+```{r}
+# for the largest required replicates
+comb <- combined[order(combined$rr, decreasing = TRUE),]
+data <- head(comb, 5)
+data[3] <- NULL
+Ranked.data <- rank(order(data$rr, decreasing = TRUE))
+LargestFive <- cbind(data,Ranked.data) 
+
+
+
+# For the smallest required replicates
+combsmall <- combined[order(combined$rr, decreasing = FALSE),]
+datasmall <- head(combsmall, 5)
+datasmall[3] <- NULL
+Ranked.data2 <- rank(order(datasmall$rr, decreasing = FALSE))
+SmallestFive <- cbind(datasmall,Ranked.data2) 
+
+
+
+```
+
+### Part c.
+Print `LargestFive` sorted by required replicates in descending order, and print `SmallestFive` in ascending order.
+
+```{r}
+# Printing largest 5 of the required replicates by decending order 
+LargestFive
+
+
+# Printing largest 5 of the required replicates by accending order
+SmallestFive
+
+```
+
+
+
+
+
+
+# Exercise 4
+
+Create an ordered treatment pairs table from the Lacanne data. In the submitted work print the table only once at the end of the exercise.
+
+### Part a.
+
+Read the lacanne data and compute mean $m_i$, standard deviation $s_i$ and count $n_i$ for `POM` in each level $i$ of `Composite` for $i = 1, \dots , k$
+
+```{r}
+# Reading the data named lecanne 
+lacanne.data <- read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/lacanne2018.csv",
+                           header = TRUE, sep = ",", check.names = FALSE)
+
+
+# Calculating mean for POM for each level of Composite
+lacanne.data.mean <- setNames(aggregate(lacanne.data$POM, by = list(lacanne.data$Composite), FUN = mean), 
+                              c("Composite", "Mean-POM"))
+
+
+# Calculating mean for POM for each level of Composite
+lacanne.data.sd <- setNames(aggregate(lacanne.data$POM, by = list(lacanne.data$Composite), FUN = sd),
+                            c("Composite","POM-SD"))
+
+
+# counting 
+lacanne.data.count <- setNames(aggregate(lacanne.data$POM, by = list(lacanne.data$Composite), FUN = length),
+                               c("Composite", "POM-count"))
+
+merged.composite <- Reduce(function(x, y) merge(x, y, all=TRUE), 
+                       list(lacanne.data.mean,lacanne.data.sd, lacanne.data.count))
+```
+
+### Part b
+
+Create a table over all possible pairs $i,j$ of $k$ `Composite` means from these data. 
+
+Let one table column be $i$ and another column be $j$. Let $i = 1, 2, \dots (k-1)$ and $j = i+1, i+2, \dots k$. There will be $(k \times (k-1))/2$ rows in this table. 
+
+I usually create an empty table, then fill the table using a pair of nested loops, the outer loop over $i$ and the inner loop over $j$. Use a counter variable to keep track of the current row and increment the counter in each step of the inner loop. 
+
+```{r}
+
+composite.level <- levels(as.factor(lacanne.data.mean$Composite))
+# length of i and j is 4; let that be defined by l
+l <- length(composite.level)
+l
+pairsNeed <- 2
+comb.matrix <- as.data.frame(t(combn(l,pairsNeed)))
+# This is how the combination matrix would look like
+comb.matrix
+
+emt <- {}
+for (i in 1:length(comb.matrix$V1)) {
+  column1 <- comb.matrix$V1[i]
+  column2 <- comb.matrix$V2[i]
+  ach <- cbind(column1,column2)
+  emt <- rbind(emt, ach)
+}
+emt
+
+emt1 <- merge(emt, merged.composite, by.x = "column1", by.y = "Composite")
+emt2 <- merge(emt1, merged.composite, by.x = "column2", by.y = "Composite" )
+emt2 <- emt2[!is.na(emt2$`POM-SD.y`),]
+emt2
+```
+
+
+### Part c.
+
+Calculate Cohen's $d$ for each combination of $\left\{m_i,m_j\right\}$ in this table. Note that there may be missing `sd` estimates. You have two options.
+
+#### Option 1. 
+
+Calculate a single pooled standard deviation for all treatment mean pairs, using
+$$
+s_{pooled} = \sqrt{\frac{\sum_i (n_i-1)s_i^2}{N-k}}
+$$
+where $N = \sum_i^k n_i$. You will need to remove missing `sd` estimates from the calculations, and any `n` not greater than 1 (When $n_i = 1$, $s_i$ cannot be calculated).
+
+#### Option 2.
+
+Subset your table to exclude any rows with treatments corresponding to `sd == NA` and calculate a pooled standard deviation for each pair, using
+
+$$
+s_{pooled} = \sqrt{\frac{ (n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1 + n_2 -2}}
+$$
+
+Add $d$ to the table, sort the table by $d$ in descending order, and print the table.
+
+
+```{r}
+s_pooled <- function(s1=s1,s2=s2, n1=n1, n2=n2) {sqrt(((n1-1)*(s1^2)) + ((n2-1)*(s2^2)))/(n1+n2-2)}
+coh.d <- function( m1=m1, m2=m2, s1=s1,s2=s2, n1=n1, n2=n2) {
+  d <- (abs(m1 - m2)/s_pooled(s1=s1,s2=s2, n1=n1, n2=n2))
+  return(d)
+}
+for (i in 1:nrow(emt2)) {
+  emt2$cohens.d[i] <- coh.d(
+    m1 = emt2$`Mean-POM.x`[i],
+    m2 = emt2$`Mean-POM.y`[i],
+    s1 = emt2$`POM-SD.x`[i],
+    s2 = emt2$`POM-SD.y`[i],
+    n1 = as.numeric(emt2$`POM-count.x`[i]),
+    n2 = as.numeric(emt2$`POM-count.y`[i])
+    )
+
+}
+emt2 <- emt2[order(emt2$cohens.d, decreasing = TRUE),]
+emt2
+```
+
+
+
+
+
+# Exercise 5.
+
+Kruskal and Wallis describe a one-way analysis of variance method based on ranks (https://www.jstor.org/stable/2280779) We will use this method to analyze the Lacanne data. 
+
+### Part a.
+
+Determine the rank $r_{j} = \text{rank}(y_{j})$ for the $j = 1, \dots, N$ values in `y = POM`, independent of group, with the smallest value is given the smallest rank (1).
+
+```{r}
+
+```
+### Part b.
+
+Calculate 
+
+$$
+H = \frac{12}{N(N+1)}\sum_{i=1}^C \frac{R_i^2}{n_i} - 3(N+1) 
+$$
+
+where (quoting from Kruskal and Wallis)
+
+$$
+\begin{aligned}
+C & = \text{the number of samples,} \\
+n_i & = \text{the number of observations in the } i \text{th sample,} \\
+N & = \sum n_i \text{ the number of observations in all samples combined,} \\
+R_i& = \text{the sum of ranks in the } i \text{th sample,}
+\end{aligned}
+$$
+
+For the Lacanne data, the $i$th sample will be the $i$th `Composite`, so $C$ will be the number of unique levels of `Composite` and $R_1$ will be the sum for ranks for the first level of `Composite`, etc.
+
+```{r}
+
+```
+
+### Part c.
+
+$H$ can be approximated as $\chi^2$ with $C-1$ degrees of freedom. Use `pchisq` to calculate an upper-tail probability. How does this compare with the $p$ value calculated in Homework 5?
+
+```{r}
+
+```
+
+You can compare your results with
+
+```{r,eval=FALSE}
+kruskal.test(POM ~ Composite, lacanne.dat)
+```
+
+
+# Exercise 6.
+
+### Part a.
+
+Download the two files from D2L `ncaa2018.csv` and `ncaa2019.csv` (`ncaa2018SAS.csv` and `ncaa2019SAS.csv` for SAS), and read into data frames or tables. `ncaa2018.csv` comes from the same source as `elo.csv` from Homework 5, while `ncaa2019.csv` is the corresponding more recent data. These tables do not contain identical sets of columns, but we will be able to merge `Finish` by individual wrestlers.
+
+```{r}
+# Reading the table for the NCAA wrestling  player 2018
+
+ncaa18.data <- read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/ncaa2018.csv", 
+                          header = TRUE, sep = ",", check.names = FALSE)
+# head(ncaa18.data)
+
+
+# Reading the data for NCAA wrestling player 2019
+ncaa19.data <- read.table("https://raw.githubusercontent.com/yamunadhungana/data_assignment7/master/ncaa2019.csv",
+                          header = TRUE, sep = ",", check.names = FALSE)
+# head(ncaa19.data)
+
+```
+
+### Part b.
+
+The tables list the wrestlers qualifying for the NCAA 2018 and 2019 National Championships, respectively. Merge the tables into a single table that contains only those wrestlers who qualified for both tournaments. Use the columns `Last` and `First` to merge on; neither is unique for all wrestlers. 
+
+Along with `Last` and `First`, the merged table should have columns corresponding to `Finish` 2018,  `Finish` 2019, `Weight` 2018 and `Weight` 2019. You can leave the column names as the defaults produced by R or SAS. To check the merge, print the number of rows in the table, and determine if there are any missing values in either `Finish` column (`sum` or `any` are sufficient. *Do not print the table*.
+
+```{r}
+# To merge the tables by the first and the Last name
+merge.ncaa <- merge(ncaa18.data,ncaa19.data, by = c("Last", "First"), all.x = FALSE)
+
+
+# printing the number of rows of the table
+print(nrow(merge.ncaa))
+
+
+# checking for the presence of NA value in the table by function any for Finish.x
+any(is.na("Finish.x"))
+
+
+# checking for the presence of NA value in the table by function any for Finish.x
+sum(is.na("Finish.y"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Part c.
+
+Print a contingency table comparing `Weight` for 2018 and `Weight` for 2019. The sum of all cells in this table will be equal to the total number of wrestlers that competed in both tournaments; the sum of the main diagonal will be the number of wrestlers that competed in the same weight class for both. How many wrestlers changed weight classes?
+
+```{r}
+# for the contigenct table of weight for 2018 and weight for 2019
+contigencytable.weight <- table(merge.ncaa$Weight.x,merge.ncaa$Weight.y)
+contigencytable.weight
+
+
+#The sum of all cells in this table will be equal to the total number 
+# of wrestlers that  competed in both tournaments
+sum(contigencytable.weight)
+
+
+# For diagnol of the table
+sum(diag(contigencytable.weight))
+
+
+# For wrestlers who changed weight classes
+changedweight.classes <- sum(contigencytable.weight)- sum(diag(contigencytable.weight))
+changedweight.classes
+
+```
+
+
+

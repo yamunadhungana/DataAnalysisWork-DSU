@@ -1,0 +1,280 @@
+---
+title: "Homework 9"
+author: "Yamuna Dhungana"
+output: 
+  pdf_document:
+        latex_engine: xelatex
+      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,warning=F,message=F)
+```
+
+## Instructions
+
+Answer all questions stated in each problem. Discuss how your results address each question.
+
+Submit your answers as a pdf, typeset (knitted) from an Rmd file. Include the Rmd file in your submission. You can typeset directly to PDF or typeset to Word then save to PDF In either case, both Rmd and PDF are required. If you are having trouble with .rmd, let us know and we will help you. If you knit to Word, check for any LaTeX commands that will not be compatible with Word.
+
+This file can be used as a template for your submission. Please follow the instructions found under "Content/Begin Here" titled **Homework Formatting**. No code should be included in your PDF submission unless explicitly requested. Use the `echo = F` flag to exclude code from the typeset document.
+
+For any question requiring a plot or graph, you may choose to use either standard R graphics or functions found in `library(ggplot2)`. 
+
+You can remove the `Instructions` section from your submission.
+
+## Exercises (ISLR)
+
+### Use set.seed(20219) in each exercise to make results reproducible.
+
+1. Question 6.8.3 pg 260 *Dr. Saunders will provide a coding lab demonstrating a solution to this exercise. You are expected to restate the exercise, restate the solutions in your own terms, and provide a review for each part.*
+
+Suppose we estimate the regression coefficients in a linear regression
+model by minimizing \[\sum_{i=1}^{i=n}\left(Y_{i}-\beta_0-\sum_{j=1}^{j=p}\beta_jX_{ij} \right)^2\]
+subject to the constraint that $\sum_{j=1}^{j=p}|\beta_j| \le s$ for a particular value of $s$. For parts (a) through (e), indicate which of i. through v. is correct. Justify your answer.
+
+a. As we increase s from 0, the training RSS will:
+
+i. Increase initially, and then eventually start decreasing in an
+inverted U shape.
+ii. Decrease initially, and then eventually start increasing in a
+U shape.
+iii. Steadily increase.
+iv. Steadily decrease.
+v. Remain constant
+
+   *iii. Steadily increase: As we increase s from 0, the training RSS will Steadily decrease because doing so the coefficients will increase their squared residuals and hence the fit of the model is more   flexiable which assist to decrease the RSS.* 
+   
+
+b. Repeat (a) for test RSS.
+
+
+   *i. Increase initially, and then eventually start decreasing in an inverted U shape.:When s = 0, We are limiting $B_{j}$ and we are starting of with the model which is more flexiable that initially increases test RSS, However as we increases $s$ from zero, the model begin to overfits the model and then eventually start decreasing in an inverted U shape.*
+   
+   
+c. Repeat (a) for variance.
+
+
+   *iii. Steadily increase: As we increase s form zero we are starting off with the model that is least flexiable beacuse we are limiting the coefficient of $B_{j}$ less so the model is more flexiable. This makes the variance of the model to increases steadily*
+   
+   
+d. Repeat (a) for (squared) bias.
+
+
+   *iv. Steadily decrease: Since the model is Lasso, we are introducing the panelty to the model, when we increase the s from zero we are starting off with the model that is least flexible because we are limiting the coefficient of $B_{j}$ less so the model is more flexiable making the bias to decrease steadily.  *
+   
+   
+e. Repeat (a) for the irreducible error.
+
+
+   *v. Remain constant: As we know, Irreducible error is the error that can't be reduced by creating good models. It is a measure of the amount of noise in our data.No matter how good we make our model, our data will have certain amount of noise or irreducible error that can not be removed.Here in our model, s not dependent. Hence irrreducible error do not change and remain constant *
+
+
+
+
+
+2. Question 6.8.4 pg 260 *Dr. Saunders will provide a coding lab demonstrating a solution to this exercise. You are expected to restate the exercise, restate the solutions in your own terms, and provide a review for each part.*
+Suppose we estimate the regression coefficients in a linear regression
+model by minimizing \[\sum_{i=1}^{i=n}\left(Y_{i}-\beta_0-\sum_{j=1}^{j=p}\beta_jX_{ij} \right)^2+\lambda\sum_{j=1}^{j=p}\beta_j^2\]
+
+for a particular value of λ. For parts (a) through (e), indicate which
+of i. through v. is correct. Justify your answer.
+
+a. As we increase λ from 0, the training RSS will:
+i. Increase initially, and then eventually start decreasing in an
+inverted U shape.
+ii. Decrease initially, and then eventually start increasing in a
+U shape.
+iii. Steadily increase.
+iv. Steadily decrease.
+v. Remain constant.
+
+   *(iii) Steadily increases:   As we increase lambda from zero the training residual of the RSS increases because introducing lambda in the model is introducing the penalty. Introducing more lamda cause more beta coefficient to set as zero and this adds constraint on the model. And that results in the steady increase in the RSS.*  
+
+```{r}
+# library(glmnet)
+# 
+# xs <- sort(rep(seq(0.01, .5, .01), 1))
+# E.ys <- 3 * sin(1 / xs)
+# plot(xs, E.ys, type = "b", ylim=c(-6, 6), pch=16)
+# 
+# ys <- E.ys + rnorm(length(xs), 0, 2)
+# points(xs, ys, pch = 16, cex = .6)
+# points(xs, E.ys, pch=16, cex=.3, type="b", col="yellow")
+# 
+# dat=cbind(xs, ys)
+# # head(dat, n=12)
+```
+
+
+
+```{r}
+# plot(xs, E.ys, ylim=c(-4, 4), pch=16)
+# lm.mod = lm(E.ys ~ poly(xs, 8))
+# points(xs, predict(lm.mod), pch = 16, col = "red", cex = .7, )
+
+```
+
+
+b. Repeat (a) for test RSS.
+
+   *ii) Decrease initially, and then eventually start increasing in a U shape.: When we start off the lamda form zero, initally the model has less overfits because of the coefficients that are forced to be zero. And the RSS will decrease initially. However, eventually necessary coefficients will be removed from the model, and the test RSS will again increase. This will make it a U shape.*
+   
+   
+c) Repeat (a) for variance.
+
+   *iv) Steadily decrease:  As we know that introducing the lambda in the model means introducing the penalty which will   steadily decrease the variance.* 
+   
+   
+d) Repeat (a) for (squared) bias.
+
+   *iii) Steadily increase:  Increasing the lambda from zero means we are making the model less flexible and that will increases the squared bias.*
+
+
+
+e) Repeat (a) for the irreducible error.
+
+   *v. Remain constant: As we know, Irreducible error is the error that can't be reduced by creating good models. It is a measure of the amount of noise in our data.No matter how good we make our model, our data will have certain amount of noise or irreducible error that can not be removed.Here in our model, lambda not dependent. Hence irrreducible error do not change and remain constant.*
+
+
+
+3. We will now try to predict permeability in the **rock** data set.
+
+a) Use lasso and ridge regression methods to fit the model:
+
+$$permeability \sim area + perimeter + shape$$
+
+Compare the two methods. Present and discuss results for the two approaches.
+
+```{r}
+
+library(glmnet)
+data("rock")
+# head(rock)
+
+
+# Ridge regression 
+## set the seed to make your partition reproductible
+set.seed(123)
+# Randomly pick observations from the data for the test data
+train <-  sample(1:dim(rock)[1], dim(rock)[1] / 2)
+test <- -train
+
+# Create the training and testing data
+train_rock <- rock[train, ]
+test_rock <- rock[test, ] # Remove the training data est data
+
+# Create a model matrix from the train and test data
+train_matrix <- model.matrix(perm~area+shape+peri, train_rock)
+test_matrix <- model.matrix(perm~area+shape+peri, data = test_rock)
+grid = 10^seq(10, -2, length=100)
+
+# With lambda = grid we will implement a ridge regression over a a grid of values ranging from 10^10 to 10^-2.  This way we cover the full range of scenarios from the null model containing only the intercept, to the least squares fit
+
+# When alpha = 0 we fit a ridge regression
+ridge <- glmnet(train_matrix, train_rock$perm, alpha = 0, lambda = grid, thresh = 1e-12)
+# plot(ridge)
+
+
+# Run a k=fold cross validation for the ridge regression model 
+
+cv_ridge  <- cv.glmnet(train_matrix, train_rock[, "peri"], alpha=0, grouped = FALSE)
+plot(cv_ridge)
+
+best_lambda_ridge <- cv_ridge$lambda.min
+best_lambda_ridge # The best lambda value!
+
+ridge_prediction <- predict(ridge, newx = test_matrix, s = best_lambda_ridge)
+paste0("My first 5 prediction for Ridge are")
+head(ridge_prediction,5)
+
+```
+
+   *Here, I have chosen to do the ridge regression first. For the reproducibility of the result, I have chosen seed as 123. I have split the data into tests and the train in the ratio of 1:1. With lambda = grid we will implement a ridge regression over a grid of values ranging from 10^10 to 10^-2.  This way, we cover the full range of scenarios from the null model containing only the intercept to the least-squares fit. To fit the Ridge regression, I have set the alpha = 0 what helps performing ridge regression. FOr predicting the Permiablilty, I have chosen lambda via cross-validation. The prediction of the first five permeability is printed above.*  
+
+
+```{r}
+## Lasso Regression
+
+# When alpha = 1 we fit a lasso
+lasso <- glmnet(train_matrix, train_rock$peri, alpha = 1, lambda = grid, thresh = 1e-12)
+summary(lasso)
+# plot(lasso)
+
+# Run a k=fold cross validation for the ridge regression model 
+# When alpha = 0 we fit a ridge regression
+cv_lasso  <- cv.glmnet(train_matrix, train_rock[, "peri"], alpha=1,grouped = FALSE)
+plot(cv_ridge)
+best_lambda_lasso <- cv_lasso$lambda.min
+best_lambda_lasso # The best lambda value!
+
+lasso_prediction <- predict(lasso, newx = test_matrix, s = best_lambda_lasso)
+paste0("My first 5 prediction are")
+head(lasso_prediction,5)
+
+
+```
+
+  *Now, I have chosen to do the lasso regression. As previously doen, for the reproducibility of the result, I have chosen seed as 123. I have split the data into tests and the train in the ratio of 1:1. With lambda = grid we will implement a lasso regression over a grid of values ranging from 10^10 to 10^-2.  This way, we cover the full range of scenarios from the null model containing only the intercept to the least-squares fit. To fit the lasso regression, I have set the alpha = 1 what helps performing lasso regression. For predicting the Permiablilty, I have chosen best lambda via cross-validation. The prediction of the first five permeability is printed above.*
+
+
+
+b) Evaluate model performance of both lasso and ridge regression using validation set error, cross validation, or some other reasonable alternative, as opposed to using training error. State explicitly which method you choose to evaluate the error and justify your choice.
+
+```{r}
+
+ridge_MSE <- mean((ridge_prediction - test_rock[, "peri"])^2)
+lasso_MSE <- mean((lasso_prediction - test_rock[, "peri"])^2)
+
+
+tableco <- as.data.frame(cbind(ridge_MSE, lasso_MSE))
+knitr::kable(tableco, digits = 3,
+             caption = "MSE of the Ridge and Lasso")
+
+```
+
+   *In order to view the performanance of the model, I chose to do MSE of the model and The MSE of the lasso is seen less than the Ridge regression.* 
+
+
+c) Are there issues with the data that would justify the added complexity of the ridge regression? Justify your answer. Consider the residuals from a linear model.
+
+```{r}
+linear_model <- lm(peri ~ ., data = train_rock)
+summary(linear_model)
+plot(linear_model)
+
+linear_prediction <- predict(linear_model, test_rock)
+linear_MSE <- mean((linear_prediction - test_rock$peri)^2)
+
+tableco1 <- as.data.frame(cbind(ridge_MSE, lasso_MSE, linear_MSE))
+knitr::kable(tableco1, digits = 3,
+             caption = "MSE of the Ridge, Lasso and linear regression")
+
+
+ridge.rsq <- ridge_MSE
+lasso.rsq <- lasso_MSE
+linear.rsq<- linear_MSE
+cat("Rsquare") 
+SSEs = cbind(ridge.rsq, lasso.rsq, linear.rsq) * nrow(test_rock)
+TSS = sum((test_rock$peri - mean(test_rock$peri)) ^ 2)
+Rsqs = 1 - SSEs / TSS
+# Rsqs
+
+knitr::kable(Rsqs, digits = 3,
+             caption = "R-squared of the Ridge, Lasso and linear regression")
+
+```
+   
+   
+   *Here, I have performed MSE which is quiet large for all the models.So, instead of using MSE, R-square for the test data was calculated , which gives us a sense of how well the models are explaining. From the results above, we see that linear and lasso models have value over 92%. The models are predicting with reasonably high accuracy. Ridge regression is having negative r squared.*
+
+
+```{r}
+# https://rstudio-pubs-static.s3.amazonaws.com/65562_c062f4bb166140c6b7126b01adb27444.html
+# (http://www.people.vcu.edu/~nhenry/Rsq.htm)
+# https://stats.stackexchange.com/questions/349244/beginner-q-residual-sum-squared-rss-and-r2
+
+
+```
+
+

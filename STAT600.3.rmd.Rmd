@@ -1,0 +1,274 @@
+---
+title: "3 Functions and Macros Homework"
+author: 'Yamuna Dhungana'
+date: 'June 16th 2020'
+output:
+  pdf_document: default
+  html_document: default
+version: 1
+---
+
+```{r,echo=FALSE}
+options(digits=12)
+```
+
+# General instructions.
+
+There are five exercises below. You are required to provide five solutions, with the same options for choosing languages as with the last exericse. The first three exercises refer back to Homework 2 and you should produce the same values for this set of exercises. We will likely use the first four functions in later exercises.
+
+
+# Exercise 1
+
+Implement Cohen's $d$ as a function of
+
+$$
+d = f(m_1, s_1, m_2, s_2) = \frac{|m_1-m_2|}{s_{pooled}}
+$$
+where $s_{pooled}$ is a pooled standard deviation. Use the formula $s_{pooled} = \sqrt{(s_1^2 + s_2^2)/2}$. You may implement pooled standard deviation as a function as well.
+
+Call this function to calculate the effect size $d$ for the differences among calories per serving, 1936 versus 2006, 1936 vs 1997 and 1997 vs 2006, as in the previous homework. Name this function `cohen.d` (or similar if using SAS).
+
+## Answer
+
+Define your function(s) in the code chunk below, the call the function with appropriate parameters in the following sections
+
+```{r}
+# function definition
+cohens_d <- function(s1,s2,m1,m2)
+  {
+       d = (abs(m1-m2)/(sqrt((s1^2+s2^2)/2)))
+       return(paste("Effect size is: ", d, sep =" "))
+}
+```
+
+#### 1936 versus 2006
+
+```{r}
+cohens_d(m1=268.1,m2=384.4,s1=124.8,s2=168.3)
+```
+
+#### 1936 versus 1997
+
+```{r}
+cohens_d(m1 = 268.1, m2 = 288.6, s1 = 124.8, s2 = 122.0)
+```
+
+#### 1997 versus 2006
+
+```{r}
+cohens_d(m1 = 288.6, m2 = 384.4, s1 = 122.0, s2 = 168.3)
+```
+
+
+# Exercise 2.
+
+Define a function to calculate required replicates. Define $m_1, s_1, m_2$ and $s_2$ as required parameters, and $\alpha$ and $\beta$ as optional parameters. Let `alpha=0.05` and `beta=0.2`.
+
+Your function should return an integer $n$, such that
+
+$$
+n \ge 2\times \left( \frac{CV}{\%Diff} \right)^2 \times \left(z_{\alpha/2}+ z_\beta \right)^2
+$$
+where $\%Diff = \frac{m_1 - m_2}{(m_1 + m_2)/2}$ and $CV = \frac{sd_{pooled}}{(m_1 + m_2)/2}$.
+
+You may use the pooled standarad deviation function from Ex. 1 (if you defined such a function).
+
+Name this function `required.replicates` (or similar if using SAS)
+
+## Answer
+
+Define your function(s) in the code chunk below, the call the function with appropriate parameters in the following sections
+
+```{r}
+# function definition
+number <- function( m1, m2, s1,s2, alpha= 0.05, beta= 0.2) {
+  s_pooled = sqrt((s1^2+s2^2)/2)
+  diff = (m1-m2)/((m1+m2)/2)
+  z_alpha = qnorm(alpha/2, mean=0, sd=1)
+  z_beta = qnorm(beta, mean=0, sd=1)
+  cv = s_pooled/((m1+m2)/2)
+  n = 2*((cv/diff)^2)*(z_alpha+z_beta)^2
+  return(n)
+}
+ 
+
+```
+#### 1936 versus 2006
+
+```{r}
+number(m1=268.1,m2=384.4,s1=124.8,s2=168.3,alpha=0.05,beta=0.2) 
+```
+
+#### 1936 versus 1997
+
+```{r}
+number(m1 = 268.1,m2 = 288.6,s1 = 124.8, s2 = 122.0,alpha=0.05,beta=0.2) 
+```
+
+#### 1997 versus 2006
+
+```{r}
+number(m1 = 288.6, m2 = 384.4, s1 = 122.0, s2 = 168.3,alpha=0.05,beta=0.2)
+```
+
+
+
+# Exercise 3
+
+Implement the likelihood formula as a function or macro. 
+
+$$
+L (x ; \mu, \sigma^2) = \frac{1}{\sigma \sqrt{2 \pi}^{}} e^{- \frac{(x - \mu)^2}{2 \sigma^2}}
+$$
+
+Define $\mu$ and $\sigma$ as optional parameters, taking values `mu=0` and `sigma=1`. Name this function `norm.pdf`
+  
+## Answer
+
+Define your function(s) in the code chunk below, the call the function with appropriate parameters in the following sections
+
+```{r}
+# function definition
+likelihood <- function(x, sigma, mu) {
+  like1 <- (1/(sigma*(sqrt(2*pi))))* (exp(-((x-mu)^2)/2*(sigma^2)))
+  return(like1)
+}
+```
+
+#### $x=-0.1$
+
+```{r}
+likelihood(x=-0.1,sigma=1, mu=0)
+```
+
+#### $x=0.0$
+
+```{r}
+likelihood(x= 0.0,sigma=1, mu=0)
+```
+
+#### $x=0.1$
+
+```{r}
+likelihood(x= 0.1,sigma=1, mu=0)
+```
+
+
+# Exercise 4
+
+The probability mass function for value $y$ from Poisson data with a mean and variance $\lambda$ is given by 
+
+$$
+f(x;\lambda) = \frac{e^{-\lambda} \lambda^x}{x!} = exp(-\lambda)(\frac{1}{x!}) exp[x\times log(\lambda)]
+$$
+
+Write a function `pois.pmf` that accepts two parameters, `x` and `lambda`. Use the built in `factorial` function for $x!$. Note that $x$ should be an integer value, so call a rounding function inside your function.
+
+Test your function with $\lambda = 12$ at $x = 4,12,20$
+
+## Answer
+
+Define your function(s) in the code chunk below, the call the function with appropriate parameters in the following sections
+
+```{r}
+# function definition
+pois.pmf <- function(x,lambda) {
+  probmass_func = exp(- lambda)*(1/factorial(x))*exp(x*log(lambda))
+  return(probmass_func)
+  
+}
+```
+
+#### $x=4$
+
+```{r}
+pois.pmf(x=4,lambda=12)
+```
+
+#### $x=12$
+
+```{r}
+pois.pmf(x=12,lambda=12)
+```
+
+#### $x=20$
+
+```{r}
+pois.pmf(x=20,lambda=12)
+```
+
+You can check your work against the built in Poisson distribution functions.
+
+```{r}
+# when x= 4
+dpois(4,lambda= 12)
+```
+
+```{r}
+#when x= 12
+dpois(12,lambda= 12)
+```
+
+
+```{r}
+#when x = 20
+dpois(20,lambda= 12)
+```
+
+Something to ponder. Note that there are two formula given. Can you implement both forms in R/IML/Macro language? Would there be a difference in computational speed or efficiency?
+```{r}
+#using first formula 
+pois.pmf_first <- function(x,lambda) {
+  probmass_func = exp(- lambda)*(1/factorial(x))*exp(x*log(lambda))
+  return(probmass_func)
+  
+}
+
+library(microbenchmark)
+microbm <-  microbenchmark("The first formula:"= pois.pmf_first(x=4, lambda=12),
+                       "The second Formula:" = pois.pmf(x=4, lambda=12))
+microbm
+
+
+library(ggplot2)
+autoplot(microbm)
+
+
+```
+From the graph, it appers that the second time takes less time to execcute.
+
+# Exercise 5 [Please don't grade this question]
+
+Fisher's LSD test is generally used to compare among two treatment means, and two means only. If we use this test to make comparisons among many treatments we risk making a spurious declaration of a signficiant difference. To control for this type of error, we sometimes use Bonferri's method.
+
+Briefly, if we want 95% confidence over several treatment comparisons, we adjust $\alpha$ to account for the number of comparisons. Thus, if we want to compare among four dfferent means ($m_1, m_2, m_3, m_4$), there are 
+
+$$
+\frac{4 \times 3}{2} = 6
+$$
+
+possible comparisons ($m_1$ vs $m_2$, $m_1$ vs $m_3$, etc.), so we use
+
+$$
+\alpha = \frac{0.05}{6} = 0.01
+$$
+
+to calculate $LSD$.
+
+Write a function, `corrected.lsd` that has the same parameter list as the `fisher.lsd` given the course outline. Add an optional parameter `g=2`, and let `g` be the number of means. In this function, calculate the number of possible comparisons among $g$ means as described above, then calculate a corrected $alpha$. 
+
+Use the corrected $alpha$ to calculate a corrected $LSD$. You can implement the $LSD$ formula in your function, or you may copy `fisher.lsd` from the course outline and call `fisher.lsd` with the corrected $\alpha$. If you choose to copy `fisher.lsd`, be sure to cite your source for the code.
+
+The function `corrected.lsd` should return a list of 5 values:
+
+- Uncorrected $\alpha$
+- Uncorrected $LSD$
+- Number of possible comparisons
+- Corrected $\alpha$
+- Corrected $LSD$
+
+When the function is called without an argument for `g` the corrected $LSD$ should be the same as the uncorrected $LSD$, so test your function by calling with the same arguments as used in the course outline (`1050.0, 18, 1496.2, 18`), once with the optional argument `g=7` and once without this optional argument.
+
+```{r}
+
+```
